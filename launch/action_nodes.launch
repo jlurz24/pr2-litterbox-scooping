@@ -1,0 +1,8 @@
+<launch>
+  <node pkg="litterbox" type="move_to_position" name="move_to_position" output="screen">
+</node>
+
+  <node pkg="litterbox" type="scoop_litterbox" name="scoop_litterbox" output="screen">
+</node>
+
+</launch>
