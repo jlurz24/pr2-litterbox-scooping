@@ -61,7 +61,7 @@ class LitterboxDetector {
      
       // Publish the litterbox location
       ROS_INFO("Setting up publisher");
-      pub = nh.advertise<geometry_msgs::PointStamped>("litterbox_location", 1000);
+      pub = nh.advertise<geometry_msgs::PointStamped>("object_location/" + objectName, 1000);
       ROS_INFO("Initialization complete");
     }
     

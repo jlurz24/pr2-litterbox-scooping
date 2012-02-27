@@ -1,9 +1,9 @@
 <launch>
-  <node pkg="litterbox" type="detect_litterbox" name="detect_litterbox" output="screen">
+  <node pkg="litterbox" type="detect_object" name="detect_litterbox" output="screen">
     <param name="object_name" value="Litterbox" />
 </node>
 
-  <node pkg="litterbox" type="detect_litterbox" name="detect_trash" output="screen">
+  <node pkg="litterbox" type="detect_object" name="detect_trash" output="screen">
     <param name="object_name" value="Trash" />
 </node>
 
