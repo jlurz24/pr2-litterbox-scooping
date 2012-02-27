@@ -125,6 +125,10 @@ class LitterboxDetector {
 
        for(unsigned int k = 0; k < blobsMsg->blobs.size(); ++k){
           const cmvision::Blob blob = blobsMsg->blobs[k];
+          if(objectName.size() > 0 && objectName != blob.colorName){
+            continue;
+          }
+
           for(unsigned int i = blob.left; i <= blob.right; ++i){
             for(unsigned int j =  blob.top; j <= blob.bottom; ++j){
               depthCloudFiltered->push_back(depthCloud->at(i, j));
@@ -150,7 +154,7 @@ class LitterboxDetector {
           ROS_INFO("Could not estimate a planar model for the given dataset.");
         }
 
-        ROS_INFO("Inliers: %lu, Coefficients %f %f %f %f", inliers->indices.size(), coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);
+        ROS_INFO("%s: Inliers: %lu, Coefficients %f %f %f %f", objectName.c_str(), inliers->indices.size(), coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);
         return depthCloudFiltered;
     }
 };

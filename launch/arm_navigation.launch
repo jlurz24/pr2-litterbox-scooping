@@ -28,12 +28,8 @@
     <remap from="/points2_out" to="/wide_stereo/points2" />
   </node>
   
-  <!-- Robot location -->
-  <!--<param name="cmvision/color_file" type="string" value="/home/student/jlurz/ros_workspace/colors.txt"/> -->
-    
-  <!-- Simulation -->
-  <param name="cmvision/color_file" type="string" value="/home/jlurz/ros_workspace/litterbox/colors.txt"/>
+  <param name="cmvision/color_file" type="string" value="$(find litterbox)/colors.txt"/>
 
-  <include file="../cmvision/cmvision.launch"/>
+  <include file="$(find cmvision)/cmvision.launch"/>
 
 </launch>

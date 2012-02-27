@@ -102,7 +102,7 @@
                 <rpy>0 0 0</rpy>
                 <scale>0.01 0.31 0.1</scale>
                 <mesh>unit_box</mesh>
-                <material>Gazebo/Red</material>
+                <material>Gazebo/Green</material>
             </visual>
         </geom:box>
 

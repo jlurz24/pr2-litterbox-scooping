@@ -7,7 +7,7 @@ include($ENV{ROS_ROOT}/core/rosbuild/rosbuild.cmake)
 #  Release        : w/o debug symbols, w/ optimization
 #  RelWithDebInfo : w/ debug symbols, w/ optimization
 #  MinSizeRel     : w/o debug symbols, w/ optimization, stripped binaries
-set(ROS_BUILD_TYPE RelWithDebInfo)
+set(ROS_BUILD_TYPE Release)
 
 # For action lib
 rosbuild_find_ros_package(actionlib_msgs)
@@ -15,6 +15,7 @@ include(${actionlib_msgs_PACKAGE_PATH}/cmake/actionbuild.cmake)
 genaction()
 
 rosbuild_init()
+rosbuild_add_boost_directories()
 
 #set the default path for built executables to the "bin" directory
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
@@ -26,13 +27,6 @@ rosbuild_genmsg()
 #uncomment if you have defined services
 #rosbuild_gensrv()
 
-#common commands for building c++ executables and libraries
 rosbuild_add_executable(scoop_litterbox src/scoop_litterbox_action.cpp)
 rosbuild_add_executable(move_to_position src/move_to_position_action.cpp)
-#target_link_libraries(${PROJECT_NAME} another_library)
-rosbuild_add_boost_directories()
-#rosbuild_link_boost(${PROJECT_NAME} thread)
-# rosbuild_add_executable(clean_litterbox src/clean_litterbox.cpp)
-# rosbuild_add_executable(teleop_arms src/teleop_arms.cpp)
 rosbuild_add_executable(detect_litterbox src/detect_litterbox.cpp)
-#target_link_libraries(example ${PROJECT_NAME})
