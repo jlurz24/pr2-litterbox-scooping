@@ -1,8 +1,4 @@
 #goal definition
 geometry_msgs/PointStamped position
 ---
-#result definition
-int32 result
 ---
-#feedback
-int32 result

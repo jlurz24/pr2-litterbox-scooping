@@ -76,7 +76,7 @@ def main():
                                ScoopLitterboxAction,
                                goal_cb=scoop_litterbox_cb,
                                input_keys=[]),
-                               transitions={'succeeded':'MOVE_TO_TRASH',
+                               transitions={'succeeded':'DETECT_TRASH',
                                             'preempted':'failure',
                                             'aborted': 'failure'})
 
