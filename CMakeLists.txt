@@ -29,4 +29,5 @@ rosbuild_genmsg()
 
 rosbuild_add_executable(scoop_litterbox src/scoop_litterbox_action.cpp)
 rosbuild_add_executable(move_to_position src/move_to_position_action.cpp)
+rosbuild_add_executable(dump_poop src/dump_poop_action.cpp)
 rosbuild_add_executable(detect_object src/detect_object.cpp)

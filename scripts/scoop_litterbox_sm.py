@@ -54,6 +54,11 @@ def main():
           rospy.loginfo("Inside scoop litterbox callback")
           goal = ScoopLitterboxGoal()
           return goal
+        
+        def dump_poop_cb(userdata, goal):
+          rospy.loginfo("Inside dump poop callback")
+          goal = DumpPoopGoal()
+          return goal
 
         # Add states to the container
         smach.StateMachine.add('DETECT_LITTERBOX', 
@@ -80,7 +85,6 @@ def main():
                                             'preempted':'failure',
                                             'aborted': 'failure'})
 
-            # Add states to the container
         smach.StateMachine.add('DETECT_TRASH',
                                 MonitorState('object_location/Trash', PointStamped, detect_trash_cb, 100),
                                 transitions = {'valid':'failure',
@@ -92,9 +96,19 @@ def main():
                                MoveToPositionAction,
                                goal_cb=move_to_trash_cb,
                                input_keys=['trash_position']),
-                               transitions={'succeeded':'success',
+                               transitions={'succeeded':'DUMP_POOP',
                                             'preempted':'failure',
                                             'aborted': 'failure'})
+   
+        smach.StateMachine.add('DUMP_POOP',
+                               SimpleActionState('dump_poop',
+                               DumpPoopAction,
+                               goal_cb=dump_poop_cb,
+                               input_keys=[]),
+                               transitions={'succeeded':'DETECT_LITTERBOX',
+                                            'preempted':'failure',
+                                            'aborted': 'failure'})
+
     # Execute SMACH plan
     outcome = sm.execute()
     rospy.spin()
