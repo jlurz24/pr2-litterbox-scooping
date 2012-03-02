@@ -5,4 +5,10 @@
   <node pkg="litterbox" type="scoop_litterbox" name="scoop_litterbox" output="screen">
 </node>
 
+  <node pkg="litterbox" type="dump_poop" name="dump_poop" output="screen">
+</node>
+
+  <node pkg="litterbox" type="explore" name="explore" output="screen">
+</node>
+
 </launch>

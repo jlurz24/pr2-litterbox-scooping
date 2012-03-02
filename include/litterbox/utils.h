@@ -11,9 +11,9 @@ const static double PI = boost::math::constants::pi<double>();
      * @return Pointer to an initialized client.
      */
     template<class T>
-    static T* initClient(const std::string& serviceName){
+    static std::auto_ptr<T> initClient(const std::string& serviceName){
       ROS_INFO("Initilizing client for %s", serviceName.c_str());
-      T* client = new T(serviceName, true);
+      std::auto_ptr<T> client(new T(serviceName, true));
 
       // Wait for the action server to come up
       while(!client->waitForServer(ros::Duration(5.0))){
@@ -73,6 +73,7 @@ const static double PI = boost::math::constants::pi<double>();
   static bool sendGoal(const T& client, const U& goal, ros::NodeHandle& nh){
     bool success = false;
     if (nh.ok()){
+      ROS_INFO("Sending goal");
       client->sendGoal(goal);
       if(!client->waitForResult(ros::Duration(200.0))){
         client->cancelGoal();
@@ -90,6 +91,10 @@ const static double PI = boost::math::constants::pi<double>();
     }
 
   }
+  else {
+    ROS_INFO("Nodehandle is invalid. Not sending action");
+  }
+
   return success;
 }
 

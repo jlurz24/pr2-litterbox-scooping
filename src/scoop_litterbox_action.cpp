@@ -20,18 +20,17 @@ typedef actionlib::SimpleActionClient<pr2_controllers_msgs::PointHeadAction> Poi
 
 using namespace std;
 
-const static double TARGET_DISTANCE_FROM_LB = 0.9; // This includes the robots base
-
 /**
  * Cleans a litterbox
  */
 class ScoopLitterboxAction {
 public:
-  ScoopLitterboxAction(string name): as(nh, name, boost::bind(&ScoopLitterboxAction::scoopLitterbox, this, _1), false),
+  ScoopLitterboxAction(const string& name): as(nh, name, boost::bind(&ScoopLitterboxAction::scoopLitterbox, this, _1), false),
     actionName(name){
-   
+       
     ROS_INFO("Starting initialization");
     
+    as.registerPreemptCallback(boost::bind(&ScoopLitterboxAction::preemptCB, this));
     torsoClient = initClient<TorsoClient>("torso_controller/position_joint_action");
     rightArmClient = initClient<MoveArmClient>("move_right_arm");
     pointHeadClient = initClient<PointHeadClient>("/head_traj_controller/point_head_action"); 
@@ -39,17 +38,26 @@ public:
     ROS_INFO("Initialization complete");
   }
   
+  void preemptCB(){
+    // TODO: Need much smarter post cancel behavior to put
+    //       the robot back in a known state
+    ROS_INFO("Scoop litterbox preempted");
+    torsoClient->cancelGoal();
+    pointHeadClient->cancelGoal();
+    rightArmClient->cancelGoal();
+    as.setPreempted();
+  }
+
   /**
    * Main function to scoop the litterbox.
    */
   void scoopLitterbox(const litterbox::ScoopLitterboxGoalConstPtr& goal){
     ROS_INFO("Scooping the litterbox");
     
-    if(as.isPreemptRequested() || !ros::ok()){
-      as.setPreempted();
+    if(!as.isActive()){
+      ROS_INFO("Scoop litterbox cancelled prior to start");
       return;
     }
-
     torsoDown();
     
     if(as.isPreemptRequested() || !ros::ok()){
@@ -72,8 +80,12 @@ public:
     }
 
     performScoop();
-    
-    // TODO: Should preemption be allowed here?  
+   
+    if(as.isPreemptRequested() || !ros::ok()){
+      as.setPreempted();
+      return;
+    }
+ 
     moveArmOverLitterboxJ();
     
     ROS_INFO("Litterbox cleaned successfully");
@@ -81,15 +93,12 @@ public:
   }
 
   ~ScoopLitterboxAction(){
-    delete torsoClient;
-    delete rightArmClient;
-    delete pointHeadClient;
   }
   
   private:
-    TorsoClient* torsoClient;
-    MoveArmClient* rightArmClient;
-    PointHeadClient* pointHeadClient;
+    auto_ptr<TorsoClient> torsoClient;
+    auto_ptr<MoveArmClient> rightArmClient;
+    auto_ptr<PointHeadClient> pointHeadClient;
     
     ros::NodeHandle nh;
 

@@ -20,65 +20,68 @@ using namespace std;
  */
 class MoveToPositionAction {
 public:
-  MoveToPositionAction(string name): as(nh, name, boost::bind(&MoveToPositionAction::moveToPosition, this, _1), false),
+  MoveToPositionAction(const string& name): as(nh, name, boost::bind(&MoveToPositionAction::moveToPosition, this, _1), false),
     actionName(name){
     ROS_INFO("Starting init of the move position action");
+
+    as.registerPreemptCallback(boost::bind(&MoveToPositionAction::preemptCB, this));
+
     pointHeadClient = initClient<PointHeadClient>("/head_traj_controller/point_head_action"); 
     
     baseClient = initClient<MoveBaseClient>("move_base");
     as.start();
   }
   
+  void preemptCB(){
+    ROS_INFO("Move to position action preempted");
+    pointHeadClient->cancelGoal();
+    baseClient->cancelGoal();
+    as.setPreempted();
+  }
+
   /**
    * Main function to move to a position
    */
   void moveToPosition(const litterbox::MoveToPositionGoalConstPtr& goal){
     ROS_INFO("Moving to position");
     
+    if(!as.isActive()){
+      ROS_INFO("Move to position action cancelled before started");
+      return;
+    }
+
+    // Point head at the target.
+    pointHeadAt(goal->position);
+
     if(as.isPreemptRequested() || !ros::ok()){
       as.setPreempted();
       return;
     }
 
-      if(as.isPreemptRequested() || !ros::ok()){
-        as.setPreempted();
-        return;
-      }
+    double xLocation = goal->position.point.x;
+    double yLocation = goal->position.point.y;
 
-      // Point head at the target.
-      pointHeadAt(goal->position);
+    ROS_INFO("Moving to point %f %f", xLocation, yLocation);
+    move_base_msgs::MoveBaseGoal moveGoal;
+    moveGoal.target_pose.header.frame_id = "base_link";
+    moveGoal.target_pose.header.stamp = ros::Time::now();
 
-      if(as.isPreemptRequested() || !ros::ok()){
-        as.setPreempted();
-        return;
-      }
-
-      double xLocation = goal->position.point.x;
-      double yLocation = goal->position.point.y;
-
-      ROS_INFO("Moving to point %f %f", xLocation, yLocation);
-      move_base_msgs::MoveBaseGoal moveGoal;
-      moveGoal.target_pose.header.frame_id = "base_link";
-      moveGoal.target_pose.header.stamp = ros::Time::now();
-
-      moveGoal.target_pose.pose.position.x = xLocation;
-      moveGoal.target_pose.pose.position.y = yLocation;
+    moveGoal.target_pose.pose.position.x = xLocation;
+    moveGoal.target_pose.pose.position.y = yLocation;
 
       // TODO: Do not currently handle orientation.
-      moveGoal.target_pose.pose.orientation.w = 1;
+    moveGoal.target_pose.pose.orientation.w = 1;
 
-      ROS_INFO("Moving to target position");
-      printPose(moveGoal.target_pose.pose);
-      sendGoal(baseClient, moveGoal, nh);
-      ROS_INFO("Target position reached");
+    ROS_INFO("Moving to target position");
+    printPose(moveGoal.target_pose.pose);
+    sendGoal(baseClient, moveGoal, nh);
+    ROS_INFO("Target position reached");
 
     ROS_INFO("Approach to position completed");
     as.setSucceeded(result);
   }
 
   ~MoveToPositionAction(){
-    delete baseClient;
-    delete pointHeadClient;
   }
   
   protected:
@@ -92,8 +95,8 @@ public:
     litterbox::MoveToPositionFeedback feedback;
     litterbox::MoveToPositionResult result;    
     
-    MoveBaseClient* baseClient;
-    PointHeadClient* pointHeadClient;
+    auto_ptr<MoveBaseClient> baseClient;
+    auto_ptr<PointHeadClient> pointHeadClient;
 
 
   /**

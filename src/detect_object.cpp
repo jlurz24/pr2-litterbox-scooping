@@ -28,13 +28,13 @@ class LitterboxDetector {
     tf::TransformListener tf;
     std::string objectName;
     
-    message_filters::Subscriber<cmvision::Blobs>* blobsSub;
-    message_filters::Subscriber<sensor_msgs::PointCloud2>* depthPointsSub;
+    auto_ptr<message_filters::Subscriber<cmvision::Blobs> > blobsSub;
+    auto_ptr<message_filters::Subscriber<sensor_msgs::PointCloud2> > depthPointsSub;
     
     // Publisher for the resulting position event.
     ros::Publisher pub; 
     
-    message_filters::TimeSynchronizer<cmvision::Blobs, sensor_msgs::PointCloud2>* sync;
+    auto_ptr<message_filters::TimeSynchronizer<cmvision::Blobs, sensor_msgs::PointCloud2> > sync;
  public:
     LitterboxDetector() : privateHandle("~"){
       
@@ -46,16 +46,16 @@ class LitterboxDetector {
       ROS_INFO("Detecting blob with object name %s", objectName.c_str());
 
       // Listen for message from cm vision when it sees the litterbox.
-      blobsSub = new message_filters::Subscriber<cmvision::Blobs>(nh, "/blobs", 1);
+      blobsSub.reset(new message_filters::Subscriber<cmvision::Blobs>(nh, "/blobs", 1));
       
       ROS_INFO("Waiting for depth point subscription");
       
       // List for the depth messages
-      depthPointsSub = new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, "/wide_stereo/points2", 1);
+      depthPointsSub.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, "/wide_stereo/points2", 1));
       
       // Sync the two messages
       ROS_INFO("Setting up sync");
-      sync = new message_filters::TimeSynchronizer<cmvision::Blobs, sensor_msgs::PointCloud2>(*blobsSub, *depthPointsSub, 1000);
+      sync.reset(new message_filters::TimeSynchronizer<cmvision::Blobs, sensor_msgs::PointCloud2>(*blobsSub, *depthPointsSub, 1000));
       
       sync->registerCallback(boost::bind(&LitterboxDetector::finalBlobCallback, this, _1, _2)); 
      
@@ -66,12 +66,13 @@ class LitterboxDetector {
     }
     
     ~LitterboxDetector(){
-      delete blobsSub;
-      delete depthPointsSub;
-      delete sync;
     }
 
     void finalBlobCallback(const cmvision::BlobsConstPtr& blobsMsg, const sensor_msgs::PointCloud2ConstPtr& depthPointsMsg){
+      if(pub.getNumSubscribers() == 0){
+        ROS_INFO("No subscribers, skipping image processing");
+        return;
+      }
 
       // Determine if the message is valid
       // TODO: Accept valid sparse messages
@@ -92,6 +93,11 @@ class LitterboxDetector {
       pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
 
       const PointCloudPtr blobsCloud = detectPlane(depthCloud, blobsMsg, inliers, coefficients);
+      if(blobsCloud.get() == NULL || inliers->indices.size() == 0){
+        ROS_INFO("No inliers to use for centroid detection");
+        return;
+      }
+
       Eigen::Vector4f centroid;
       pcl::compute3DCentroid(*blobsCloud, *inliers, centroid);
       
@@ -135,7 +141,12 @@ class LitterboxDetector {
             }
           }
         }
-  
+        
+        if(depthCloudFiltered->points.size() == 0){
+          ROS_INFO("No blob points found.");
+          return depthCloudFiltered;
+        }
+
         // Create the segmentation object
         pcl::SACSegmentation<pcl::PointXYZ> seg;
   
@@ -152,6 +163,7 @@ class LitterboxDetector {
 
         if (inliers->indices.size () == 0){
           ROS_INFO("Could not estimate a planar model for the given dataset.");
+          return depthCloudFiltered;
         }
 
         ROS_INFO("%s: Inliers: %lu, Coefficients %f %f %f %f", objectName.c_str(), inliers->indices.size(), coefficients->values[0], coefficients->values[1], coefficients->values[2], coefficients->values[3]);

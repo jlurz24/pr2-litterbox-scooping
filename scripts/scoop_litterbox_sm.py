@@ -3,13 +3,12 @@ import rospy
 import smach
 import smach_ros
 import traceback
+import litterbox.msg
 
-from litterbox.msg import MoveToPositionAction
-from smach_ros import SimpleActionState, MonitorState
-from litterbox.msg import MoveToPositionGoal
 from geometry_msgs.msg import PointStamped
-from litterbox.msg import ScoopLitterboxAction
-from litterbox.msg import ScoopLitterboxGoal
+from smach_ros import MonitorState, SimpleActionState
+from litterbox.msg import ExploreAction, MoveToPositionAction, ScoopLitterboxAction, DumpPoopAction
+from litterbox.msg import MoveToPositionGoal, ScoopLitterboxGoal, ExploreGoal, DumpPoopGoal
 
 # main
 def main():
@@ -59,14 +58,51 @@ def main():
           rospy.loginfo("Inside dump poop callback")
           goal = DumpPoopGoal()
           return goal
+        
+        def explore_for_litterbox_cb(userdata, goal):
+          rospy.loginfo("Inside explore for lb cb")
+          goal = ExploreGoal()
+          return goal
+
+        def explore_for_trash_cb(userdata, goal):
+          rospy.loginfo("Inside explore for trash cb")
+          goal = ExploreGoal()
+          return goal
+        
+        def stop_action_cb(outcomes):
+          rospy.loginfo("Inside child termination")
+          return True
 
         # Add states to the container
-        smach.StateMachine.add('DETECT_LITTERBOX', 
-                                MonitorState('object_location/Litterbox', PointStamped, detect_litterbox_cb, 100), 
-                                transitions = {'valid':'failure', 
-                                               'preempted': 'DETECT_LITTERBOX',
-                                               'invalid':'MOVE_TO_LITTERBOX'})
+        # Create the sub SMACH state machine
+        sm_con_detect_litterbox = smach.Concurrence(
+          outcomes=['detected','notdetected'],
+          default_outcome='notdetected',
+          outcome_map={
+            'detected':
+              { 'DETECT_LITTERBOX':'invalid'},
+            'notdetected':
+              {'EXPLORE_FOR_LB':'succeeded', 'DETECT_LITTERBOX':'valid'}
+            },
+          child_termination_cb = stop_action_cb
+        )
 
+        with sm_con_detect_litterbox:
+          
+          smach.Concurrence.add('DETECT_LITTERBOX', 
+                                MonitorState('object_location/Litterbox', PointStamped, detect_litterbox_cb))
+          
+          smach.Concurrence.add('EXPLORE_FOR_LB',
+                               SimpleActionState('explore',
+                               ExploreAction,
+                               goal_cb=explore_for_litterbox_cb,
+                               input_keys=[]))
+
+
+        smach.StateMachine.add('CON_DETECT_LITTERBOX', sm_con_detect_litterbox,
+                               transitions={'detected':'MOVE_TO_LITTERBOX',
+                                            'notdetected':'failure'})
+ 
         smach.StateMachine.add('MOVE_TO_LITTERBOX', 
                                SimpleActionState('move_to_position',
                                MoveToPositionAction,
@@ -81,15 +117,38 @@ def main():
                                ScoopLitterboxAction,
                                goal_cb=scoop_litterbox_cb,
                                input_keys=[]),
-                               transitions={'succeeded':'DETECT_TRASH',
+                               transitions={'succeeded':'CON_DETECT_TRASH',
                                             'preempted':'failure',
                                             'aborted': 'failure'})
 
-        smach.StateMachine.add('DETECT_TRASH',
-                                MonitorState('object_location/Trash', PointStamped, detect_trash_cb, 100),
-                                transitions = {'valid':'failure',
-                                               'preempted': 'DETECT_TRASH',
-                                               'invalid':'MOVE_TO_TRASH'})
+        # Create the sub SMACH state machine
+        sm_con_detect_trash = smach.Concurrence(
+          outcomes=['detected','notdetected'],
+          default_outcome='notdetected',
+          outcome_map={
+            'detected':
+              { 'DETECT_TRASH':'invalid'},
+            'notdetected':
+              {'EXPLORE_FOR_TRASH':'succeeded', 'DETECT_TRASH':'valid'}
+            },
+          child_termination_cb = stop_action_cb
+        )
+
+        with sm_con_detect_trash:
+
+          smach.Concurrence.add('DETECT_TRASH',
+                                MonitorState('object_location/Trash', PointStamped, detect_trash_cb))
+
+          smach.Concurrence.add('EXPLORE_FOR_TRASH',
+                               SimpleActionState('explore',
+                               ExploreAction,
+                               goal_cb=explore_for_trash_cb,
+                               input_keys=[]))
+
+        
+        smach.StateMachine.add('CON_DETECT_TRASH', sm_con_detect_trash,
+                               transitions={'detected' : 'MOVE_TO_TRASH',
+                                            'notdetected' : 'failure'})
 
         smach.StateMachine.add('MOVE_TO_TRASH',
                                SimpleActionState('move_to_position',
@@ -105,14 +164,17 @@ def main():
                                DumpPoopAction,
                                goal_cb=dump_poop_cb,
                                input_keys=[]),
-                               transitions={'succeeded':'DETECT_LITTERBOX',
+                               transitions={'succeeded':'CON_DETECT_LITTERBOX',
                                             'preempted':'failure',
                                             'aborted': 'failure'})
 
     # Execute SMACH plan
     outcome = sm.execute()
-    rospy.spin()
-    sis.stop()
 
 if __name__ == '__main__':
+  try:
     main()
+  except rospy.ROSInterruptException:
+    sis.stop()
+    pass
+

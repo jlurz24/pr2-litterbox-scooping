@@ -19,21 +19,32 @@ using namespace std;
  */
 class DumpPoopAction {
 public:
-  DumpPoopAction(string name): as(nh, name, boost::bind(&DumpPoopAction::dumpPoop, this, _1), false),
-    actionName(name){
-   
+  DumpPoopAction(const string& name): as(nh, name, boost::bind(&DumpPoopAction::dumpPoop, this, _1), false), actionName(name){
+    
     ROS_INFO("Starting initialization");
     
     rightArmClient = initClient<MoveArmClient>("move_right_arm");
+    as.registerPreemptCallback(boost::bind(&DumpPoopAction::preemptCB, this));
     as.start();
+    
     ROS_INFO("Initialization complete");
   }
   
+  void preemptCB(){
+    rightArmClient->cancelGoal();
+    as.setPreempted();
+  }
+
   /**
    * Main function to dump poop
    */
   void dumpPoop(const litterbox::DumpPoopGoalConstPtr& goal){
-    ROS_INFO("Dumping Poop");
+   if(!as.isActive()){
+     ROS_INFO("Dump poop action cancelled before started");
+     return;
+   }
+    
+   ROS_INFO("Dumping Poop");
     
    std::vector<double> flipped = overTrashJoints();
    flipped[6] -= boost::math::constants::pi<double>();
@@ -42,21 +53,20 @@ public:
    if(as.isPreemptRequested() || !ros::ok()){
       as.setPreempted();
       return;
-    }
+   }
 
-    ROS_INFO("Poop dumped. Returning to base orientation.");
-    moveArmToJointPositions(overTrashJoints());
-    ROS_INFO("Grabber returned to normal orientation");
+   ROS_INFO("Poop dumped. Returning to base orientation.");
+   moveArmToJointPositions(overTrashJoints());
+   ROS_INFO("Grabber returned to normal orientation");
     
-    as.setSucceeded(result);
+   as.setSucceeded(result);
   }
 
   ~DumpPoopAction(){
-    delete rightArmClient;
   }
   
   private:
-    MoveArmClient* rightArmClient;
+    auto_ptr<MoveArmClient> rightArmClient;
     
     ros::NodeHandle nh;
 
