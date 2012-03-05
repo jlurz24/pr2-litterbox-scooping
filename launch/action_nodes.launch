@@ -11,4 +11,8 @@
   <node pkg="litterbox" type="explore" name="explore" output="screen">
 </node>
 
+  <node pkg="litterbox" type="init" name="init" output="screen">
+  </node>
+
+
 </launch>

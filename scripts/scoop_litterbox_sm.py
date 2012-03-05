@@ -7,8 +7,8 @@ import litterbox.msg
 
 from geometry_msgs.msg import PointStamped
 from smach_ros import MonitorState, SimpleActionState
-from litterbox.msg import ExploreAction, MoveToPositionAction, ScoopLitterboxAction, DumpPoopAction
-from litterbox.msg import MoveToPositionGoal, ScoopLitterboxGoal, ExploreGoal, DumpPoopGoal
+from litterbox.msg import ExploreAction, MoveToPositionAction, ScoopLitterboxAction, DumpPoopAction, InitAction
+from litterbox.msg import MoveToPositionGoal, ScoopLitterboxGoal, ExploreGoal, DumpPoopGoal, InitGoal
 
 # main
 def main():
@@ -72,8 +72,23 @@ def main():
         def stop_action_cb(outcomes):
           rospy.loginfo("Inside child termination")
           return True
+        
+        def init_action_cb(userdata, goal):
+          rospy.loginfo("Inside init action cb")
+          goal = InitGoal()
+          return goal
 
         # Add states to the container
+        smach.StateMachine.add('INIT',
+                               SimpleActionState('init',
+                               InitAction,
+                               goal_cb=init_action_cb,
+                               input_keys=[]),
+                               transitions={'succeeded':'CON_DETECT_LITTERBOX',
+                                            'preempted':'INIT',
+                                            'aborted': 'failure'})
+
+
         # Create the sub SMACH state machine
         sm_con_detect_litterbox = smach.Concurrence(
           outcomes=['detected','notdetected'],
