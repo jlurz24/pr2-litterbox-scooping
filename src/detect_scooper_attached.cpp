@@ -29,7 +29,7 @@ class DetectScooperAttached {
       privateHandle.getParam("joint_name", jointName);
       ROS_INFO("Detecting scooper in joint name %s", jointName.c_str());
 
-      jointSub.reset(new message_filters::Subscriber<sensor_msgs::JointState>(nh, "/joint_state", 1));
+      jointSub.reset(new message_filters::Subscriber<sensor_msgs::JointState>(nh, "joint_states", 1));
       
       ROS_INFO("Waiting for joint state subscription");
       
@@ -52,12 +52,15 @@ class DetectScooperAttached {
       }
       
       ScooperAttachedPtr msg = ScooperAttachedPtr(new ScooperAttached());
-
+      
+      ROS_INFO("Received a joint state message. Looking for %s", jointName.c_str());
       // Find the matching joint.
       msg->attached = false;
       for(unsigned int i = 0; i < jointsMsg->name.size(); ++i){
         if(jointsMsg->name[i] == jointName){
+          ROS_INFO("Joint found: %f %f", jointsMsg->position[i], jointsMsg->effort[i]);
           if(jointsMsg->position[i] > CLOSED_GRIPPER_POSITION && jointsMsg->effort[i] > HELD_SCOOP_EFFORT){
+            ROS_INFO("Scoop attached");
             msg->attached = true;
           }
           break;
