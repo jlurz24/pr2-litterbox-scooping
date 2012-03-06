@@ -7,4 +7,8 @@
     <param name="object_name" value="Trash" />
 </node>
 
+
+  <node pkg="litterbox" type="detect_scooper_attached" name="detect_scooper_attached" output="screen">
+    <param name="joint_name" value="r_gripper_joint" />
+</node>
 </launch>

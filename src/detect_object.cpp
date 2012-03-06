@@ -2,12 +2,10 @@
 #include <message_filters/subscriber.h>
 #include <tf/transform_listener.h>
 #include <cmvision/Blobs.h>
-#include <message_filters/subscriber.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
 #include <message_filters/time_synchronizer.h>
-#include <iostream>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/sample_consensus/method_types.h>

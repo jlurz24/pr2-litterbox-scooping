@@ -14,5 +14,7 @@
   <node pkg="litterbox" type="init" name="init" output="screen">
   </node>
 
+  <node pkg="litterbox" type="insert_scooper" name="insert_scooper" output="screen">
+  </node>
 
 </launch>

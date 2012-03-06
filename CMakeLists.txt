@@ -22,10 +22,8 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 rosbuild_check_for_sse()
-#uncomment if you have defined messages
 rosbuild_genmsg()
-#uncomment if you have defined services
-#rosbuild_gensrv()
+rosbuild_gensrv()
 
 rosbuild_add_executable(scoop_litterbox src/scoop_litterbox_action.cpp)
 rosbuild_add_executable(move_to_position src/move_to_position_action.cpp)
@@ -33,3 +31,5 @@ rosbuild_add_executable(dump_poop src/dump_poop_action.cpp)
 rosbuild_add_executable(explore src/explore_action.cpp)
 rosbuild_add_executable(detect_object src/detect_object.cpp)
 rosbuild_add_executable(init src/init_action.cpp)
+rosbuild_add_executable(detect_scooper_attached src/detect_scooper_attached.cpp)
+rosbuild_add_executable(insert_scooper src/insert_scooper_action.cpp)
