@@ -19,6 +19,8 @@
   <depend package="pcl_ros"/>
   <depend package="smach"/>
   <depend package="smach_ros"/>
+  <depend package="gazebo" />
+  <depend package="tinyxml" />
 </package>
 
 
