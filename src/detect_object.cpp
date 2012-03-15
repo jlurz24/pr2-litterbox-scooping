@@ -68,7 +68,6 @@ class LitterboxDetector {
 
     void finalBlobCallback(const cmvision::BlobsConstPtr& blobsMsg, const sensor_msgs::PointCloud2ConstPtr& depthPointsMsg){
       if(pub.getNumSubscribers() == 0){
-        ROS_INFO("No subscribers, skipping image processing");
         return;
       }
 

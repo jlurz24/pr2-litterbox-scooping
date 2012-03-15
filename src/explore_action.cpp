@@ -18,7 +18,7 @@ using namespace std;
  */
 class ExploreAction {
 public:
-  ExploreAction(const string& name): as(nh, name, boost::bind(&ExploreAction::explore, this, _1), false), actionName(name){
+  ExploreAction(const string& name): as(nh, name, boost::bind(&ExploreAction::explore, this, _1), false), actionName(name), moving(false){
     
     as.registerPreemptCallback(boost::bind(&ExploreAction::preemptCB, this));
     ROS_INFO("Starting init of the explore action");
@@ -28,7 +28,16 @@ public:
   }
   
   void preemptCB(){
-    baseClient->cancelGoal();
+    ROS_INFO("Preempting the explore action");
+
+    if(!as.isActive()){
+      ROS_INFO("Explore action cancelled prior to start");
+      return;
+    }
+
+    if(moving){
+      baseClient->cancelGoal();
+    }
     as.setPreempted();
   }
 
@@ -44,18 +53,21 @@ public:
     move_base_msgs::MoveBaseGoal moveGoal;
     moveGoal.target_pose.header.frame_id = "base_link";
     moveGoal.target_pose.header.stamp = ros::Time::now();
-    moveGoal.target_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, boost::math::constants::pi<double>());
+
+    // Rotate one quarter at a time to resolve ambiguity about which way to spin. 
+    moveGoal.target_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, boost::math::constants::pi<double>() / 2.0);
 
     ROS_INFO("Exploring");
-    sendGoal(baseClient, moveGoal, nh);
-    ROS_INFO("First half of the turn complete");
-    
-    if(as.isPreemptRequested() || !ros::ok()){
-      as.setPreempted();
-      return;
+    for(unsigned int i; i < 4; ++i){
+      if(as.isPreemptRequested() || !ros::ok()){
+        as.setPreempted();
+        return;
+      }
+      
+      moving = true;
+      sendGoal(baseClient, moveGoal, nh);
+      moving = false;
     }
-    sendGoal(baseClient, moveGoal, nh);
-    ROS_INFO("Exploring complete");
 
     as.setSucceeded(result);
   }
@@ -69,7 +81,10 @@ public:
     // Actionlib classes
     actionlib::SimpleActionServer<litterbox::ExploreAction> as;
     string actionName;
-  
+    
+    // Whether the robot is currently executing a move.  
+    bool moving;
+
     // create messages that are used to published feedback/result
     litterbox::ExploreFeedback feedback;
     litterbox::ExploreResult result;    

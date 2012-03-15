@@ -48,8 +48,7 @@ def main():
 
         def detect_scooper_attached_cb(userdata, msg):
             rospy.loginfo("Inside detect scooper attached")
-            # return msg.attached
-            return True
+            return msg.attached
 
         def scoop_litterbox_cb(userdata, goal):
           rospy.loginfo("Inside scoop litterbox callback")
@@ -157,7 +156,7 @@ def main():
                                                 InsertScooperAction,
                                                 goal_cb=insert_scooper_cb,
                                                 input_keys=[]),
-                                                transitions={'succeeded':'MOVE_TO_LITTERBOX',
+                                                transitions={'succeeded':'CON_DETECT_LITTERBOX',
                                                              'preempted':'failure',
                                                              'aborted':'failure'})
                                

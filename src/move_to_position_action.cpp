@@ -21,7 +21,7 @@ using namespace std;
 class MoveToPositionAction {
 public:
   MoveToPositionAction(const string& name): as(nh, name, boost::bind(&MoveToPositionAction::moveToPosition, this, _1), false),
-    actionName(name){
+    actionName(name), state(NONE){
     ROS_INFO("Starting init of the move position action");
 
     as.registerPreemptCallback(boost::bind(&MoveToPositionAction::preemptCB, this));
@@ -34,9 +34,18 @@ public:
   
   void preemptCB(){
     ROS_INFO("Move to position action preempted");
-    pointHeadClient->cancelGoal();
-    baseClient->cancelGoal();
+    if(!as.isActive()){
+      ROS_INFO("Action not yet active");
+      return;
+    }
+    if(state == POINTING_HEAD){
+      pointHeadClient->cancelGoal();
+    }
+    else if(state == MOVING){
+      baseClient->cancelGoal();
+    }
     as.setPreempted();
+    state = NONE;
   }
 
   /**
@@ -45,13 +54,18 @@ public:
   void moveToPosition(const litterbox::MoveToPositionGoalConstPtr& goal){
     ROS_INFO("Moving to position");
     
+    state = STARTING;
+
     if(!as.isActive()){
       ROS_INFO("Move to position action cancelled before started");
       return;
     }
 
     // Point head at the target.
+    state = POINTING_HEAD;
     pointHeadAt(goal->position);
+    
+    state = PREPARING_TO_MOVE;
 
     if(as.isPreemptRequested() || !ros::ok()){
       as.setPreempted();
@@ -74,10 +88,12 @@ public:
 
     ROS_INFO("Moving to target position");
     printPose(moveGoal.target_pose.pose);
-    sendGoal(baseClient, moveGoal, nh);
-    ROS_INFO("Target position reached");
 
-    ROS_INFO("Approach to position completed");
+    state = MOVING;
+    sendGoal(baseClient, moveGoal, nh);
+    state = FINISHED;
+
+    ROS_INFO("Target position reached");
     as.setSucceeded(result);
   }
 
@@ -97,6 +113,8 @@ public:
     
     auto_ptr<MoveBaseClient> baseClient;
     auto_ptr<PointHeadClient> pointHeadClient;
+
+    enum { NONE, STARTING, POINTING_HEAD, PREPARING_TO_MOVE, MOVING, FINISHED } state;
 
 
   /**
@@ -122,7 +140,6 @@ public:
 
     sendGoal(pointHeadClient, goal, nh);
     ROS_INFO("Completed pointing head");
-
   }
 };
 
