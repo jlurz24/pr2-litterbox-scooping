@@ -91,9 +91,13 @@ public:
 
     state = MOVING;
     sendGoal(baseClient, moveGoal, nh);
-    state = FINISHED;
+    state = POINTING_HEAD;
 
     ROS_INFO("Target position reached");
+    // Finish by pointing the robot's head back at the target.
+    pointHeadAt(goal->position);
+    state = FINISHED;
+
     as.setSucceeded(result);
   }
 
@@ -116,6 +120,13 @@ public:
 
     enum { NONE, STARTING, POINTING_HEAD, PREPARING_TO_MOVE, MOVING, FINISHED } state;
 
+  /**
+   * Print a position
+   */
+  static void printPose(const geometry_msgs::Pose& currentPose) {
+    std::cout << "position" << " x:" << currentPose.position.x << " y:" << currentPose.position.y << " z:" << currentPose.position.z << std::endl;
+    std::cout << "orientation" << " x:" << currentPose.orientation.x << " y:" << currentPose.orientation.y << " z:" << currentPose.orientation.z << " w:" << currentPose.orientation.w << std::endl;
+  }
 
   /**
    * Point the head at a given point

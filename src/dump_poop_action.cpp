@@ -4,6 +4,7 @@
 #include <actionlib/server/simple_action_server.h>
 #include <move_arm_msgs/MoveArmAction.h>
 #include <move_arm_msgs/utils.h>
+#include <boost/math/constants/constants.hpp>
 
 // TODO: Define pre and post conditions.
 

@@ -4,6 +4,8 @@
 #include <actionlib/server/simple_action_server.h>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <tf/tf.h>
+#include <boost/math/constants/constants.hpp>
+
 // TODO: Define pre and post conditions.
 
 // Generated messages
@@ -58,7 +60,7 @@ public:
     moveGoal.target_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, boost::math::constants::pi<double>() / 2.0);
 
     ROS_INFO("Exploring");
-    for(unsigned int i; i < 4; ++i){
+    for(unsigned int i = 0; i < 4; ++i){
       if(as.isPreemptRequested() || !ros::ok()){
         as.setPreempted();
         return;

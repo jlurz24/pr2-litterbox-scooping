@@ -1,9 +1,5 @@
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
-#include <planning_environment_msgs/GetRobotState.h>
-#include <boost/math/constants/constants.hpp>
-
-const static double PI = boost::math::constants::pi<double>();
 
     /*
      * initialize a client of the specified type and service name.
@@ -22,46 +18,7 @@ const static double PI = boost::math::constants::pi<double>();
       ROS_INFO("Service %s connected", serviceName.c_str());
       return client;
     }
-
-  /**
-   * Get the current right arm joint positions
-   */
-  static const std::vector<double> getJointState(ros::NodeHandle& nh){
-    ROS_INFO("Fetching the robot state");
-    ros::service::waitForService("environment_server/get_robot_state");
-    ros::ServiceClient getStateClient = nh.serviceClient<planning_environment_msgs::GetRobotState>("environment_server/get_robot_state");
-
-    std::vector<double> result;
-    result.resize(7);
-
-    static const std::string links[] = {"r_shoulder_pan_joint", "r_shoulder_lift_joint", "r_upper_arm_roll_joint", "r_elbow_flex_joint", "r_forearm_roll_joint", "r_wrist_flex_joint", "r_wrist_roll_joint"};
-
-    const unsigned int TARGET_LINKS = 7;
-
-    planning_environment_msgs::GetRobotState::Request request;
-    planning_environment_msgs::GetRobotState::Response response;
-    if(getStateClient.call(request,response)){
-      for(unsigned int i = 0; i < response.robot_state.joint_state.name.size(); ++i){
-        for(unsigned int j = 0; j < TARGET_LINKS; ++j){
-          if(response.robot_state.joint_state.name[i] == links[j]){
-            result[j] = response.robot_state.joint_state.position[i];
-            // Continuous joints may report outside of their positionable range.
-            if(links[j] == "r_forearm_roll_joint" || links[j] == "r_wrist_roll_joint"){
-              // Shift out of the range spanning 0 to an all positive range, then remove excess rotations
-              // and correct back to the original range.
-              result[j] = fmod(result[j] + PI, 2 * PI) - PI;
-            }
-            break;
-          }
-        }
-      }
-    }
-    else {
-      ROS_ERROR("Service call to get robot state failed on %s", getStateClient.getService().c_str());
-    }
-    return result;
-  }
-
+  
   /*
    * Send a goal to an action client, wait for a result, and 
    * report success or failure.
@@ -97,13 +54,3 @@ const static double PI = boost::math::constants::pi<double>();
 
   return success;
 }
-
-  /**
-   * Print a position
-   */
-  static void printPose(const geometry_msgs::Pose& currentPose) {
-    std::cout << "position" << " x:" << currentPose.position.x << " y:" << currentPose.position.y << " z:" << currentPose.position.z << std::endl;
-    std::cout << "orientation" << " x:" << currentPose.orientation.x << " y:" << currentPose.orientation.y << " z:" << currentPose.orientation.z << " w:" << currentPose.orientation.w << std::endl;
-  }
-
-

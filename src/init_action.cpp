@@ -4,7 +4,7 @@
 #include <actionlib/server/simple_action_server.h>
 #include <mapping_msgs/AttachedCollisionObject.h>
 #include <tf/tf.h>
-
+#include <boost/math/constants/constants.hpp>
 
 
 // TODO: Define pre and post conditions.

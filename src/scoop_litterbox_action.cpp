@@ -6,6 +6,8 @@
 #include <move_arm_msgs/MoveArmAction.h>
 #include <pr2_controllers_msgs/PointHeadAction.h>
 #include <move_arm_msgs/utils.h>
+#include <planning_environment_msgs/GetRobotState.h>
+#include <boost/math/constants/constants.hpp>
 
 // TODO: Put attaching the scoop in a separate action.
 
@@ -19,6 +21,8 @@ typedef actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> MoveArmClien
 typedef actionlib::SimpleActionClient<pr2_controllers_msgs::PointHeadAction> PointHeadClient;
 
 using namespace std;
+
+static const double PI = boost::math::constants::pi<double>();
 
 /**
  * Cleans a litterbox
@@ -109,6 +113,45 @@ public:
     // create messages that are used to published feedback/result
     litterbox::ScoopLitterboxFeedback feedback;
     litterbox::ScoopLitterboxResult result;
+
+  /**
+   * Get the current right arm joint positions
+   */
+  static const std::vector<double> getJointState(ros::NodeHandle& nh){
+    ROS_INFO("Fetching the robot state");
+    ros::service::waitForService("environment_server/get_robot_state");
+    ros::ServiceClient getStateClient = nh.serviceClient<planning_environment_msgs::GetRobotState>("environment_server/get_robot_state");
+
+    std::vector<double> result;
+    result.resize(7);
+
+    static const std::string links[] = {"r_shoulder_pan_joint", "r_shoulder_lift_joint", "r_upper_arm_roll_joint", "r_elbow_flex_joint", "r_forearm_roll_joint", "r_wrist_flex_joint", "r_wrist_roll_joint"};
+
+    const unsigned int TARGET_LINKS = 7;
+
+    planning_environment_msgs::GetRobotState::Request request;
+    planning_environment_msgs::GetRobotState::Response response;
+    if(getStateClient.call(request,response)){
+      for(unsigned int i = 0; i < response.robot_state.joint_state.name.size(); ++i){
+        for(unsigned int j = 0; j < TARGET_LINKS; ++j){
+          if(response.robot_state.joint_state.name[i] == links[j]){
+            result[j] = response.robot_state.joint_state.position[i];
+            // Continuous joints may report outside of their positionable range.
+            if(links[j] == "r_forearm_roll_joint" || links[j] == "r_wrist_roll_joint"){
+              // Shift out of the range spanning 0 to an all positive range, then remove excess rotations
+              // and correct back to the original range.
+              result[j] = fmod(result[j] + PI, 2 * PI) - PI;
+            }
+            break;
+          }
+        }
+      }
+    }
+    else {
+      ROS_ERROR("Service call to get robot state failed on %s", getStateClient.getService().c_str());
+    }
+    return result;
+  }
 
   /**
    * Point the head at a given point
