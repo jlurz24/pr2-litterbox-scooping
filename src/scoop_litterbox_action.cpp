@@ -6,8 +6,11 @@
 #include <move_arm_msgs/MoveArmAction.h>
 #include <pr2_controllers_msgs/PointHeadAction.h>
 #include <move_arm_msgs/utils.h>
+#include <pr2_controllers_msgs/JointTrajectoryAction.h>
 #include <planning_environment_msgs/GetRobotState.h>
 #include <boost/math/constants/constants.hpp>
+#include <kinematics_msgs/GetKinematicSolverInfo.h>
+#include <kinematics_msgs/GetPositionIK.h>
 
 // TODO: Put attaching the scoop in a separate action.
 
@@ -19,6 +22,7 @@
 typedef actionlib::SimpleActionClient<pr2_controllers_msgs::SingleJointPositionAction> TorsoClient;
 typedef actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> MoveArmClient;
 typedef actionlib::SimpleActionClient<pr2_controllers_msgs::PointHeadAction> PointHeadClient;
+typedef actionlib::SimpleActionClient<pr2_controllers_msgs::JointTrajectoryAction> TrajClient;
 
 using namespace std;
 
@@ -37,6 +41,7 @@ public:
     as.registerPreemptCallback(boost::bind(&ScoopLitterboxAction::preemptCB, this));
     torsoClient = initClient<TorsoClient>("torso_controller/position_joint_action");
     rightArmClient = initClient<MoveArmClient>("move_right_arm");
+    trajectoryClient =initClient<TrajClient>("r_arm_controller/joint_trajectory_action"); //LZ
     pointHeadClient = initClient<PointHeadClient>("/head_traj_controller/point_head_action"); 
     as.start();
     ROS_INFO("Initialization complete");
@@ -103,7 +108,7 @@ public:
     auto_ptr<TorsoClient> torsoClient;
     auto_ptr<MoveArmClient> rightArmClient;
     auto_ptr<PointHeadClient> pointHeadClient;
-    
+    auto_ptr<TrajClient> trajectoryClient;
     ros::NodeHandle nh;
 
     // Actionlib classes
@@ -114,9 +119,9 @@ public:
     litterbox::ScoopLitterboxFeedback feedback;
     litterbox::ScoopLitterboxResult result;
 
-  /**
-   * Get the current right arm joint positions
-   */
+   /**
+    * Get the current right arm joint positions
+    */
   static const std::vector<double> getJointState(ros::NodeHandle& nh){
     ROS_INFO("Fetching the robot state");
     ros::service::waitForService("environment_server/get_robot_state");
@@ -152,7 +157,7 @@ public:
     }
     return result;
   }
-
+   
   /**
    * Point the head at a given point
    */
@@ -279,35 +284,38 @@ public:
    */
   void moveArmToJointPositions(const std::vector<double>& positions){
 
-    move_arm_msgs::MoveArmGoal goalB;
-    std::vector<std::string> names(7);
-    names[0] = "r_shoulder_pan_joint";
-    names[1] = "r_shoulder_lift_joint";
-    names[2] = "r_upper_arm_roll_joint";
-    names[3] = "r_elbow_flex_joint";
-    names[4] = "r_forearm_roll_joint";
-    names[5] = "r_wrist_flex_joint";
-    names[6] = "r_wrist_roll_joint";
+    pr2_controllers_msgs::JointTrajectoryGoal goalB;
 
-    goalB.motion_plan_request.group_name = "right_arm";
-    goalB.motion_plan_request.num_planning_attempts = 1;
-    goalB.motion_plan_request.allowed_planning_time = ros::Duration(5.0);
+    // First, the joint names, which apply to all waypoints
+    goalB.trajectory.joint_names.push_back("r_shoulder_pan_joint");
+    goalB.trajectory.joint_names.push_back("r_shoulder_lift_joint");
+    goalB.trajectory.joint_names.push_back("r_upper_arm_roll_joint");
+    goalB.trajectory.joint_names.push_back("r_elbow_flex_joint");
+    goalB.trajectory.joint_names.push_back("r_forearm_roll_joint");
+    goalB.trajectory.joint_names.push_back("r_wrist_flex_joint");
+    goalB.trajectory.joint_names.push_back("r_wrist_roll_joint");
 
-    goalB.motion_plan_request.planner_id= std::string("");
-    goalB.planner_service_name = std::string("ompl_planning/plan_kinematic_path");
-    goalB.motion_plan_request.goal_constraints.joint_constraints.resize(names.size());
+    goalB.trajectory.points.resize(1);
 
-    for (unsigned int i = 0 ; i < goalB.motion_plan_request.goal_constraints.joint_constraints.size(); ++i){
-      goalB.motion_plan_request.goal_constraints.joint_constraints[i].joint_name = names[i];
-      goalB.motion_plan_request.goal_constraints.joint_constraints[i].position = 0.0;
-      goalB.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_below = 0.01;
-      goalB.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.01;
-    }
-    
+    // Move arm over litterbox position
+    // Positions
+    goalB.trajectory.points[0].positions.resize(7);
+
     for(unsigned int i = 0; i < positions.size(); ++i){
-      goalB.motion_plan_request.goal_constraints.joint_constraints[i].position = positions[i];
+      goalB.trajectory.points[0].positions[i] = positions[i];
     }
-    sendGoal(rightArmClient, goalB, nh);
+
+    // Velocities
+    goalB.trajectory.points[0].velocities.resize(7);
+    for (size_t j = 0; j < 7; ++j)
+    {
+      goalB.trajectory.points[0].velocities[j] = 0.0;
+    }
+    // To be reached 4 second after starting along the trajectory
+    goalB.trajectory.points[0].time_from_start = ros::Duration(2.0);
+    goalB.trajectory.header.stamp = ros::Time::now() + ros::Duration(1.0);
+    
+    sendGoal(trajectoryClient, goalB, nh);
   }
 
   /**
@@ -326,35 +334,63 @@ public:
    * @param referenceFrame Frame the movement is relative to
    */
   bool moveRightArm(const geometry_msgs::Point position, const geometry_msgs::Quaternion orientation, const std::string referenceFrame){
-      const static double TOLERANCE = 0.02;
+     pr2_controllers_msgs::JointTrajectoryGoal goalB;
+     // define the IK service messages
+     kinematics_msgs::GetKinematicSolverInfo::Request request;
+     kinematics_msgs::GetKinematicSolverInfo::Response response;
+     kinematics_msgs::GetPositionIK::Request  gpik_req;
+     kinematics_msgs::GetPositionIK::Response gpik_res;
+
+     // First, the joint names, which apply to all waypoints
+     goalB.trajectory.joint_names.push_back("r_shoulder_pan_joint");
+     goalB.trajectory.joint_names.push_back("r_shoulder_lift_joint");
+     goalB.trajectory.joint_names.push_back("r_upper_arm_roll_joint");
+     goalB.trajectory.joint_names.push_back("r_elbow_flex_joint");
+     goalB.trajectory.joint_names.push_back("r_forearm_roll_joint");
+     goalB.trajectory.joint_names.push_back("r_wrist_flex_joint");
+     goalB.trajectory.joint_names.push_back("r_wrist_roll_joint");
+     goalB.trajectory.points.resize(1);
+     
+     //IK
+     ros::service::waitForService("pr2_right_arm_kinematics/get_ik_solver_info");
+     ros::service::waitForService("pr2_right_arm_kinematics/get_ik");
+     ros::ServiceClient query_client = nh.serviceClient<kinematics_msgs::GetKinematicSolverInfo>("pr2_right_arm_kinematics/get_ik_solver_info");
+     ros::ServiceClient ik_client = nh.serviceClient<kinematics_msgs::GetPositionIK>("pr2_right_arm_kinematics/get_ik");
+     query_client.call(request,response);
+      
+     gpik_req.timeout = ros::Duration(4.0);
+     gpik_req.ik_request.ik_link_name = "r_wrist_roll_link";
+
+     gpik_req.ik_request.pose_stamped.header.frame_id = referenceFrame;
+     gpik_req.ik_request.pose_stamped.pose.position = position;
+     gpik_req.ik_request.pose_stamped.pose.orientation = orientation;
+     gpik_req.ik_request.ik_seed_state.joint_state.position.resize(response.kinematic_solver_info.joint_names.size());
+     gpik_req.ik_request.ik_seed_state.joint_state.name = response.kinematic_solver_info.joint_names;
+     for(unsigned int i=0; i< response.kinematic_solver_info.joint_names.size(); i++)
+         {
+         gpik_req.ik_request.ik_seed_state.joint_state.position[i] = (response.kinematic_solver_info.limits[i].min_position + response.kinematic_solver_info.limits[i].max_position)/2.0;
+         }
+      
+     if(ik_client.call(gpik_req, gpik_res))
+        {
+         while (gpik_res.error_code.val != gpik_res.error_code.SUCCESS)
+              ROS_ERROR("Inverse kinematics failed");        
+         goalB.trajectory.points[0].positions = gpik_res.solution.joint_state.position;
+        }
+      else
+        ROS_ERROR("Inverse kinematics service call failed");
+
+     // Velocities
+     goalB.trajectory.points[0].velocities.resize(7);
+     for (size_t j = 0; j < 7; ++j)
+        {
+        goalB.trajectory.points[0].velocities[j] = 0.0;
+        }
+     // To be reached 2 second after starting along the trajectory
+     goalB.trajectory.points[0].time_from_start = ros::Duration(2.0);
+     goalB.trajectory.header.stamp = ros::Time::now() + ros::Duration(1.0);
     
-      move_arm_msgs::MoveArmGoal goal;
-      goal.motion_plan_request.group_name = "right_arm";
-      goal.motion_plan_request.num_planning_attempts = 1;
-      goal.motion_plan_request.planner_id = std::string("");
-      goal.planner_service_name = std::string("ompl_planning/plan_kinematic_path");
-      goal.motion_plan_request.allowed_planning_time = ros::Duration(5.0);
-      
-      
-      motion_planning_msgs::SimplePoseConstraint desired_pose;
-      desired_pose.header.frame_id = referenceFrame;
-      desired_pose.link_name = "r_wrist_roll_link";
-
-      desired_pose.pose.position = position;
-      desired_pose.pose.orientation = orientation;
-
-      desired_pose.absolute_position_tolerance.x = TOLERANCE;
-      desired_pose.absolute_position_tolerance.y = TOLERANCE;
-      desired_pose.absolute_position_tolerance.z = TOLERANCE;
-
-      desired_pose.absolute_roll_tolerance = TOLERANCE;
-      desired_pose.absolute_pitch_tolerance = TOLERANCE;
-      desired_pose.absolute_yaw_tolerance = TOLERANCE;
-
-      move_arm_msgs::addGoalConstraintToMoveArmGoal(desired_pose,goal);
-
-      // execute it
-      return sendGoal(rightArmClient, goal, nh);
+     return sendGoal(trajectoryClient, goalB, nh);
   }
 
   /**

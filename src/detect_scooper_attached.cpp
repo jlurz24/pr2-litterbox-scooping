@@ -58,7 +58,6 @@ class DetectScooperAttached {
         if(jointsMsg->name[i] == jointName){
           // Note: Effort when closing the scoop is negative.
           if(jointsMsg->position[i] > CLOSED_GRIPPER_POSITION && jointsMsg->effort[i] < HELD_SCOOP_EFFORT){
-            ROS_INFO("Scoop attached");
             msg->attached = true;
           }
           break;

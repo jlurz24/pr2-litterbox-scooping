@@ -1,0 +1,5 @@
+geometry_msgs/PointStamped estimatedLocation
+---
+float64 width
+float64 depth
+float64 height

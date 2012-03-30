@@ -47,7 +47,6 @@ def main():
           return False
 
         def detect_scooper_attached_cb(userdata, msg):
-            rospy.loginfo("Inside detect scooper attached")
             return msg.attached
 
         def scoop_litterbox_cb(userdata, goal):

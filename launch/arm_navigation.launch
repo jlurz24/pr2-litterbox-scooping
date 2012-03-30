@@ -22,6 +22,9 @@
   </node>
   -->
 
+<!-- Move right arm away -->
+<node name="move_left_arm_away" pkg="litterbox" type="move_left_arm_away" respawn="false" output="screen" />
+
   <!-- For object detection -->
   <node pkg="point_cloud_converter" name="point_cloud_converter2" type="point_cloud_converter">
     <remap from="/points_in" to="/wide_stereo/points" />
