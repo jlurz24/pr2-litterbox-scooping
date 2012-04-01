@@ -5,7 +5,7 @@
 #include <mapping_msgs/AttachedCollisionObject.h>
 #include <tf/tf.h>
 #include <boost/math/constants/constants.hpp>
-
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 
 // TODO: Define pre and post conditions.
 
@@ -24,6 +24,7 @@ public:
     ROS_INFO("Starting init of the init action");
     collisionPublisher = nh.advertise<mapping_msgs::AttachedCollisionObject>("attached_collision_object", 10);    
     as.start();
+    initialPosePublisher = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("initialpose", 10);
   }
   
   /**
@@ -66,6 +67,17 @@ public:
     collisionPublisher.publish(scoop);
 
     ROS_INFO("Scoop attached");
+    
+    // Set the initial pose.
+    ROS_INFO("Setting the initial pose");
+    geometry_msgs::PoseWithCovarianceStamped initialPose;
+    initialPose.header.frame_id = "/map";
+    initialPose.pose.pose.position.x = 15;
+    initialPose.pose.pose.position.y = 15;
+    initialPose.pose.pose.position.z = 0;
+    initialPose.pose.pose.orientation.w = 1;
+
+    initialPosePublisher.publish(initialPose);
 
     as.setSucceeded(result);
   }
@@ -85,6 +97,11 @@ public:
      */
     ros::Publisher collisionPublisher;
  
+    /**
+     * Publisher for initial position
+     */
+    ros::Publisher initialPosePublisher;
+
     // create messages that are used to published feedback/result
     litterbox::InitFeedback feedback;
     litterbox::InitResult result;    

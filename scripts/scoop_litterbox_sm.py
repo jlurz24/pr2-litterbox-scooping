@@ -1,3 +1,4 @@
+#! /usr/bin/python
 import roslib
 roslib.load_manifest('litterbox')
 import rospy, smach, smach_ros, traceback, litterbox.msg

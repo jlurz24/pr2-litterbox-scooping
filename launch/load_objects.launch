@@ -1,0 +1,10 @@
+<launch>
+ <!-- send urdf to param server -->
+ <param name="litterbox" textfile="$(find litterbox)/objects/litterbox.model" />
+ <param name="trashcan" textfile="$(find litterbox)/objects/trashcan.model" />
+
+ <!-- push urdf to factory and spawn robot in gazebo -->
+ <node name="spawn_litterbox" pkg="gazebo" type="spawn_model" args="-param litterbox -gazebo -model litterbox -x 0 -z 1" respawn="false" output="screen" />
+
+ <node name="spawn_trashcan" pkg="gazebo" type="spawn_model" args="-param trashcan -gazebo -model trashcan -x 0 -z 1" respawn="false" output="screen" />
+</launch>
