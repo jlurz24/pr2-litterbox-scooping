@@ -53,6 +53,7 @@ def main():
         def scoop_litterbox_cb(userdata, goal):
           rospy.loginfo("Inside scoop litterbox callback")
           goal = ScoopLitterboxGoal()
+          goal.position.point = userdata.litterbox_position
           return goal
 
         def dump_poop_cb(userdata, goal):
@@ -164,7 +165,7 @@ def main():
                                SimpleActionState('scoop_litterbox',
                                ScoopLitterboxAction,
                                goal_cb=scoop_litterbox_cb,
-                               input_keys=[]),
+                               input_keys=['litterbox_position']),
                                transitions={'succeeded':'CON_DETECT_TRASH',
                                             'preempted':'failure',
                                             'aborted': 'failure'})

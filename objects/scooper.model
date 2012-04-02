@@ -11,7 +11,7 @@
         <mass>0.1</mass>
         <visual>
           <size>0.04 0.04 0.35</size>
-          <material>Gazebo/Green</material>
+          <material>Gazebo/Red</material>
           <mesh>unit_box</mesh>
         </visual>
       </geom:box>

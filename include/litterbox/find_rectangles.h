@@ -17,5 +17,6 @@ namespace litterbox {
   // the function draws all the squares in the image
   void drawRectangles(const cv::Mat& img, const std::vector<std::vector<cv::Point> >& rectangles, const std::string& windowName);
 
+  void showRectanglesInImage(const cv::Mat& img);
   void showRectanglesInFile(const std::string& fileName);
 };

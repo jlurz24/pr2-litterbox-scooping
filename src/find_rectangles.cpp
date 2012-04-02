@@ -70,7 +70,7 @@ const std::vector<RectangleInfo> findRectangles(const cv::Mat& img){
             std::vector<Contour> contours;
             cv::findContours(grayMat, contours,
                 CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
-            
+
             // test each contour
             for(unsigned int k = 0; k < contours.size(); ++k){
                 Contour contour = contours[k];
@@ -119,6 +119,7 @@ const std::vector<RectangleInfo> findRectangles(const cv::Mat& img){
             }
         }
     }
+    ROS_INFO("Located %i rectangles", rectangles.size());
     return rectangles;
 }
 
@@ -138,7 +139,10 @@ void drawRectangles(const cv::Mat& img, const std::vector<std::vector<cv::Point>
 void showRectanglesInFile(const std::string& fileName){
 
   cv::Mat img = cv::imread(fileName);
+  showRectanglesInImage(img);
+}
 
+void showRectanglesInImage(const cv::Mat& img){
   static const std::string windowName = "Rectangles";
   cv::namedWindow(windowName, 1);
 

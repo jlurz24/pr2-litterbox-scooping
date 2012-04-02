@@ -109,6 +109,7 @@ class LitterboxDetector {
       tf.waitForTransform("wide_stereo_optical_frame", "base_link", ros::Time(0), timeout);
       
       geometry_msgs::PointStamped resultPoint3;
+      resultPoint3.header.frame_id = "/base_link";
       tf.transformPoint("/base_link", resultPoint, resultPoint3);
 
       ROS_INFO("Point in base link frame: %f, %f, %f", resultPoint3.point.x, resultPoint3.point.y, resultPoint3.point.z);

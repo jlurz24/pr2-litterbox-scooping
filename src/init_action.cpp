@@ -47,23 +47,29 @@ public:
     scoop.touch_links.push_back("r_gripper_r_finger_tip_link");
     scoop.object.id = "scoop";
     scoop.object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
-    scoop.object.header.frame_id = "r_gripper_r_finger_tip_link";
+    scoop.object.header.frame_id = "/r_gripper_tool_frame";
     scoop.object.header.stamp = ros::Time::now();
 
     geometric_shapes_msgs::Shape object;
-    object.type = geometric_shapes_msgs::Shape::CYLINDER;
-    object.dimensions.resize(2);
-    object.dimensions[0] = 0.07;
-    object.dimensions[1] = 0.35;
+    object.type = geometric_shapes_msgs::Shape::BOX;
+    object.dimensions.resize(3);
+    object.dimensions[0] = 0.08;
+    object.dimensions[1] = 0.08;
+    object.dimensions[2] = 0.65;
+
     geometry_msgs::Pose pose;
-    pose.position.x = 0.12;
-    pose.position.y = 0.025;
+    pose.position.x = 0.25;
+    pose.position.y = 0.0;
     pose.position.z = 0.0;
     pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0, boost::math::constants::pi<double>() / 2, 0);
 
     scoop.object.shapes.push_back(object);
     scoop.object.poses.push_back(pose);
-
+    
+    while(collisionPublisher.getNumSubscribers() == 0){
+      ROS_INFO("Waiting for the collision subscriber to come up");
+      ros::Duration(2).sleep();
+    }
     collisionPublisher.publish(scoop);
 
     ROS_INFO("Scoop attached");
@@ -77,6 +83,11 @@ public:
     initialPose.pose.pose.position.z = 0;
     initialPose.pose.pose.orientation.w = 1;
 
+    // Wait for the listener to come up.
+    while(initialPosePublisher.getNumSubscribers() == 0){
+      ROS_INFO("Waiting for the initial pose subscriber to come up");
+      ros::Duration(2).sleep();
+    }
     initialPosePublisher.publish(initialPose);
 
     as.setSucceeded(result);

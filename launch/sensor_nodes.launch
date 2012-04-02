@@ -11,4 +11,8 @@
   <node pkg="litterbox" type="detect_scooper_attached" name="detect_scooper_attached" output="screen">
     <param name="joint_name" value="r_gripper_joint" />
 </node>
+
+  <node pkg="litterbox" type="determine_lb_dimensions_server" name ="determine_lb_dimensions_server" output="screen">
+    <param type="boolean" name="debug" value="true" />
+  </node>
 </launch>
