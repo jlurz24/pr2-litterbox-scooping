@@ -104,15 +104,15 @@ class LitterboxDetector {
       resultPoint.point.z = centroid[2];
       resultPoint.header.frame_id = "wide_stereo_optical_frame";
 
-      // Now convert from image from camera frame to base_link
+      // Now convert from image from camera frame to world
       ros::Duration timeout(10.0);
-      tf.waitForTransform("wide_stereo_optical_frame", "base_link", ros::Time(0), timeout);
+      tf.waitForTransform("wide_stereo_optical_frame", "map", ros::Time(0), timeout);
       
       geometry_msgs::PointStamped resultPoint3;
-      resultPoint3.header.frame_id = "/base_link";
-      tf.transformPoint("/base_link", resultPoint, resultPoint3);
+      resultPoint3.header.frame_id = "/map";
+      tf.transformPoint("/map", resultPoint, resultPoint3);
 
-      ROS_INFO("Point in base link frame: %f, %f, %f", resultPoint3.point.x, resultPoint3.point.y, resultPoint3.point.z);
+      ROS_INFO("Point in map frame: %f, %f, %f", resultPoint3.point.x, resultPoint3.point.y, resultPoint3.point.z);
       
       // TODO: Do something with the vector.
 

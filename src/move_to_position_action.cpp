@@ -21,7 +21,7 @@ using namespace std;
 class MoveToPositionAction {
 public:
   MoveToPositionAction(const string& name): as(nh, name, boost::bind(&MoveToPositionAction::moveToPosition, this, _1), false),
-    actionName(name), state(NONE){
+    actionName(name){
     ROS_INFO("Starting init of the move position action");
 
     as.registerPreemptCallback(boost::bind(&MoveToPositionAction::preemptCB, this));
@@ -38,14 +38,13 @@ public:
       ROS_INFO("Action not yet active");
       return;
     }
-    if(state == POINTING_HEAD){
+    if(pointHeadClient->getState() == actionlib::SimpleClientGoalState::ACTIVE){
       pointHeadClient->cancelGoal();
     }
-    else if(state == MOVING){
+    if(baseClient->getState() == actionlib::SimpleClientGoalState::ACTIVE){
       baseClient->cancelGoal();
     }
     as.setPreempted();
-    state = NONE;
   }
 
   /**
@@ -54,18 +53,13 @@ public:
   void moveToPosition(const litterbox::MoveToPositionGoalConstPtr& goal){
     ROS_INFO("Moving to position");
     
-    state = STARTING;
-
     if(!as.isActive()){
       ROS_INFO("Move to position action cancelled before started");
       return;
     }
 
     // Point head at the target.
-    state = POINTING_HEAD;
     pointHeadAt(goal->position);
-    
-    state = PREPARING_TO_MOVE;
 
     if(as.isPreemptRequested() || !ros::ok()){
       as.setPreempted();
@@ -77,7 +71,7 @@ public:
 
     ROS_INFO("Moving to point %f %f", xLocation, yLocation);
     move_base_msgs::MoveBaseGoal moveGoal;
-    moveGoal.target_pose.header.frame_id = "base_link";
+    moveGoal.target_pose.header.frame_id = "map";
     moveGoal.target_pose.header.stamp = ros::Time::now();
 
     moveGoal.target_pose.pose.position.x = xLocation;
@@ -89,14 +83,12 @@ public:
     ROS_INFO("Moving to target position");
     printPose(moveGoal.target_pose.pose);
 
-    state = MOVING;
     sendGoal(baseClient, moveGoal, nh);
-    state = POINTING_HEAD;
 
     ROS_INFO("Target position reached");
+
     // Finish by pointing the robot's head back at the target.
     pointHeadAt(goal->position);
-    state = FINISHED;
 
     as.setSucceeded(result);
   }
@@ -118,8 +110,6 @@ public:
     auto_ptr<MoveBaseClient> baseClient;
     auto_ptr<PointHeadClient> pointHeadClient;
 
-    enum { NONE, STARTING, POINTING_HEAD, PREPARING_TO_MOVE, MOVING, FINISHED } state;
-
   /**
    * Print a position
    */
@@ -137,7 +127,7 @@ public:
     pr2_controllers_msgs::PointHeadGoal goal;
 
     goal.target = point;
-    goal.target.header.frame_id = "base_link";
+    goal.target.header.frame_id = "map";
     goal.pointing_frame = "wide_stereo_optical";
     goal.pointing_axis.x = 1;
     goal.pointing_axis.y = 0;

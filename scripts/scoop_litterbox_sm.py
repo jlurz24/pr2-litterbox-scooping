@@ -54,6 +54,8 @@ def main():
           rospy.loginfo("Inside scoop litterbox callback")
           goal = ScoopLitterboxGoal()
           goal.position.point = userdata.litterbox_position
+          # TODO: Remove
+          goal.position.header.frame_id = "/map"
           return goal
 
         def dump_poop_cb(userdata, goal):

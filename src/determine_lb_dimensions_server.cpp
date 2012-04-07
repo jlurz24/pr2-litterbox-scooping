@@ -5,6 +5,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
+#include <tf/transform_listener.h>
 
 using namespace cv;
 using namespace litterbox;
@@ -73,9 +74,7 @@ class DetermineLBDimensionsServer {
    std::vector<pcl::PointXYZ> contour3d;
    contour3d.resize(4);
    for(unsigned int i = 0; i < contour3d.size(); ++i){
-     ROS_INFO("Pixel position x %f y %f", contour[i].x, contour[i].y);
      contour3d[i] = depthCloud->at(contour[i].x, contour[i].y);
-     ROS_INFO("X: %f Y:%f Z: %f", contour3d[i].x, contour3d[i].y, contour3d[i].z);
    }
 
    double d1 = calc3DDistance(contour3d[0], contour3d[1]);
@@ -84,8 +83,26 @@ class DetermineLBDimensionsServer {
 
    res.width = std::min(d1, d2);
    res.depth = std::max(d1, d2);
-   res.height = 0; // TODO: Implement
 
+   // Convert to base frame coordinates.
+   // Now convert from image from camera frame to world
+   tf.waitForTransform("narrow_stereo_optical_frame", "map", ros::Time(0), ros::Duration(10.0));
+   
+   for(unsigned int i = 0; i < 4; ++i){   
+     geometry_msgs::PointStamped resultPoint;
+     resultPoint.header.frame_id = "/map";
+     geometry_msgs::PointStamped imagePoint;
+     imagePoint.header.frame_id = "/narrow_stereo_optical_frame";
+     imagePoint.point.x = contour3d[i].x;
+     imagePoint.point.y = contour3d[i].y;
+     imagePoint.point.z = contour3d[i].z;
+     tf.transformPoint("/map", imagePoint, resultPoint);
+     ROS_INFO("Point in map frame: %f, %f, %f", resultPoint.point.x, resultPoint.point.y, resultPoint.point.z);
+     res.contour.push_back(resultPoint);
+   }
+
+   // Use average height of the corners.
+   res.height = (res.contour[0].point.z + res.contour[1].point.z + res.contour[2].point.z + res.contour[3].point.z) / 4.0;
    ROS_INFO("Litterbox width %f depth %f height %f", res.width, res.depth, res.height);
    return true;
   }
@@ -94,6 +111,7 @@ class DetermineLBDimensionsServer {
      ros::NodeHandle nh;
      ros::NodeHandle privateNh;
      ros::ServiceServer service;
+     tf::TransformListener tf;
      bool debug;
 
      static double calc3DDistance(pcl::PointXYZ& point1, pcl::PointXYZ& point2){

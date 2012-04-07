@@ -5,7 +5,7 @@
 
 typedef actionlib::SimpleActionClient< pr2_controllers_msgs::JointTrajectoryAction > TrajClient;
 
-class RobotArm
+class RobotRightArm
 {
 private:
   // Action client for the joint trajectory action 
@@ -15,8 +15,8 @@ private:
 
 public:
   //! Initialize the action client and wait for action server to come up
-  RobotArm() {
-    traj_client_ = initClient<TrajClient>("l_arm_controller/joint_trajectory_action");
+  RobotRightArm() {
+    traj_client_ = initClient<TrajClient>("r_arm_controller/joint_trajectory_action");
   }
 
   //! Sends the command to start a given trajectory
@@ -40,20 +40,20 @@ public:
     pr2_controllers_msgs::JointTrajectoryGoal goal;
 
     // First, the joint names, which apply to all waypoints
-    goal.trajectory.joint_names.push_back("l_shoulder_pan_joint");
-    goal.trajectory.joint_names.push_back("l_shoulder_lift_joint");
-    goal.trajectory.joint_names.push_back("l_upper_arm_roll_joint");
-    goal.trajectory.joint_names.push_back("l_elbow_flex_joint");
-    goal.trajectory.joint_names.push_back("l_forearm_roll_joint");
-    goal.trajectory.joint_names.push_back("l_wrist_flex_joint");
-    goal.trajectory.joint_names.push_back("l_wrist_roll_joint");
+    goal.trajectory.joint_names.push_back("r_shoulder_pan_joint");
+    goal.trajectory.joint_names.push_back("r_shoulder_lift_joint");
+    goal.trajectory.joint_names.push_back("r_upper_arm_roll_joint");
+    goal.trajectory.joint_names.push_back("r_elbow_flex_joint");
+    goal.trajectory.joint_names.push_back("r_forearm_roll_joint");
+    goal.trajectory.joint_names.push_back("r_wrist_flex_joint");
+    goal.trajectory.joint_names.push_back("r_wrist_roll_joint");
 
     // We will have two waypoints in this goal trajectory
     goal.trajectory.points.resize(1);
 
     // Positions
     goal.trajectory.points[0].positions.resize(7);
-    goal.trajectory.points[0].positions[0] = 2.0;
+    goal.trajectory.points[0].positions[0] = -2.0;
     goal.trajectory.points[0].positions[3] = -2.05;
     goal.trajectory.points[0].positions[5] = -0.1;
    
@@ -75,9 +75,9 @@ public:
 int main(int argc, char** argv)
 {
   // Init the ROS node
-  ros::init(argc, argv, "robot_driver");
+  ros::init(argc, argv, "robot_right_arm");
 
-  RobotArm arm;
+  RobotRightArm arm;
 
   // Start the trajectory. This will not return until completion.
   arm.startTrajectory(arm.armExtensionTrajectory());

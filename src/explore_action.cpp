@@ -20,7 +20,7 @@ using namespace std;
  */
 class ExploreAction {
 public:
-  ExploreAction(const string& name): as(nh, name, boost::bind(&ExploreAction::explore, this, _1), false), actionName(name), moving(false){
+  ExploreAction(const string& name): as(nh, name, boost::bind(&ExploreAction::explore, this, _1), false), actionName(name){
     
     as.registerPreemptCallback(boost::bind(&ExploreAction::preemptCB, this));
     ROS_INFO("Starting init of the explore action");
@@ -37,7 +37,7 @@ public:
       return;
     }
 
-    if(moving){
+    if(baseClient->getState() == actionlib::SimpleClientGoalState::ACTIVE){
       baseClient->cancelGoal();
     }
     as.setPreempted();
@@ -66,9 +66,7 @@ public:
         return;
       }
       
-      moving = true;
       sendGoal(baseClient, moveGoal, nh);
-      moving = false;
     }
 
     as.setSucceeded(result);
@@ -83,9 +81,6 @@ public:
     // Actionlib classes
     actionlib::SimpleActionServer<litterbox::ExploreAction> as;
     string actionName;
-    
-    // Whether the robot is currently executing a move.  
-    bool moving;
 
     // create messages that are used to published feedback/result
     litterbox::ExploreFeedback feedback;

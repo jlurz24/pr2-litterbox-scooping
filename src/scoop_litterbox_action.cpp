@@ -12,12 +12,11 @@
 #include <kinematics_msgs/GetKinematicSolverInfo.h>
 #include <kinematics_msgs/GetPositionIK.h>
 
-// TODO: Put attaching the scoop in a separate action.
-
 // TODO: Define pre and post conditions.
 
 // Generated messages
 #include <litterbox/ScoopLitterboxAction.h>
+#include <litterbox/DetermineLBDimensions.h>
 
 typedef actionlib::SimpleActionClient<pr2_controllers_msgs::SingleJointPositionAction> TorsoClient;
 typedef actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> MoveArmClient;
@@ -51,9 +50,21 @@ public:
     // TODO: Need much smarter post cancel behavior to put
     //       the robot back in a known state
     ROS_INFO("Scoop litterbox preempted");
-    torsoClient->cancelGoal();
-    pointHeadClient->cancelGoal();
-    rightArmClient->cancelGoal();
+    if(torsoClient->getState() == actionlib::SimpleClientGoalState::ACTIVE){
+      torsoClient->cancelGoal();
+    }
+
+    if(pointHeadClient->getState() == actionlib::SimpleClientGoalState::ACTIVE){
+      pointHeadClient->cancelGoal();
+    }
+    
+    if(rightArmClient->getState() == actionlib::SimpleClientGoalState::ACTIVE){
+      rightArmClient->cancelGoal();
+    }
+    
+    if(trajectoryClient->getState() == actionlib::SimpleClientGoalState::ACTIVE){
+      trajectoryClient->cancelGoal();
+    }
     as.setPreempted();
   }
 
@@ -80,7 +91,8 @@ public:
       as.setPreempted();
       return;
     }
-
+    
+    determineLBDimensions();
     moveArmOverLitterboxJ();
     
     if(as.isPreemptRequested() || !ros::ok()){
@@ -158,6 +170,21 @@ public:
     return result;
   }
    
+  bool determineLBDimensions(){
+    ROS_INFO("Determining LB dimensions");
+    ros::ServiceClient determineLBDimClient = nh.serviceClient<litterbox::DetermineLBDimensions>("determine_lb_dimensions");
+    litterbox::DetermineLBDimensions srv;
+    // TODO: Set location here?
+    if(!determineLBDimClient.call(srv)){
+      ROS_INFO("Failed to call determine_lb_dimensions service");
+      return false;
+    }
+    
+    // TODO: Store result here.
+    ROS_INFO("Received LB dimensions");
+    return true;
+  }
+
   /**
    * Point the head at a given point
    */
