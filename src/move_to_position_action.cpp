@@ -59,36 +59,25 @@ public:
     }
 
     // Point head at the target.
-    pointHeadAt(goal->position);
+    pointHeadAt(goal->target.pose.position);
 
     if(as.isPreemptRequested() || !ros::ok()){
       as.setPreempted();
       return;
     }
 
-    double xLocation = goal->position.point.x;
-    double yLocation = goal->position.point.y;
-
-    ROS_INFO("Moving to point %f %f", xLocation, yLocation);
-    move_base_msgs::MoveBaseGoal moveGoal;
-    moveGoal.target_pose.header.frame_id = "map";
-    moveGoal.target_pose.header.stamp = ros::Time::now();
-
-    moveGoal.target_pose.pose.position.x = xLocation;
-    moveGoal.target_pose.pose.position.y = yLocation;
-
-      // TODO: Do not currently handle orientation.
-    moveGoal.target_pose.pose.orientation.w = 1;
-
     ROS_INFO("Moving to target position");
-    printPose(moveGoal.target_pose.pose);
+    printPose(goal->target.pose);
 
+    move_base_msgs::MoveBaseGoal moveGoal;
+    moveGoal.target_pose = goal->target;
+    moveGoal.target_pose.header.stamp = ros::Time::now();
     sendGoal(baseClient, moveGoal, nh);
 
     ROS_INFO("Target position reached");
 
     // Finish by pointing the robot's head back at the target.
-    pointHeadAt(goal->position);
+    pointHeadAt(goal->target.pose.position);
 
     as.setSucceeded(result);
   }
@@ -120,13 +109,14 @@ public:
 
   /**
    * Point the head at a given point
+   * Assumes position in the map frame
    * TODO: Refactor and share this code.
    */
-  void pointHeadAt(const geometry_msgs::PointStamped point){
+  void pointHeadAt(const geometry_msgs::Point point){
     ROS_INFO("Pointing head");
     pr2_controllers_msgs::PointHeadGoal goal;
 
-    goal.target = point;
+    goal.target.point = point;
     goal.target.header.frame_id = "map";
     goal.pointing_frame = "wide_stereo_optical";
     goal.pointing_axis.x = 1;

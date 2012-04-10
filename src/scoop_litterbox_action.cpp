@@ -85,7 +85,7 @@ public:
       return;
     }
     
-    pointHeadAt(goal->position);
+    pointHeadAt(goal->target.pose.position);
     
     if(as.isPreemptRequested() || !ros::ok()){
       as.setPreempted();
@@ -157,6 +157,7 @@ public:
             if(links[j] == "r_forearm_roll_joint" || links[j] == "r_wrist_roll_joint"){
               // Shift out of the range spanning 0 to an all positive range, then remove excess rotations
               // and correct back to the original range.
+              // TODO: Use PCL normalization function
               result[j] = fmod(result[j] + PI, 2 * PI) - PI;
             }
             break;
@@ -188,12 +189,12 @@ public:
   /**
    * Point the head at a given point
    */
-  void pointHeadAt(const geometry_msgs::PointStamped point){
+  void pointHeadAt(const geometry_msgs::Point point){
     ROS_INFO("Pointing head");
     pr2_controllers_msgs::PointHeadGoal goal;
 
-    goal.target = point;
-
+    goal.target.point = point;
+    goal.target.header.frame_id = "map";
     goal.pointing_frame = "wide_stereo_optical";
     goal.pointing_axis.x = 1;
     goal.pointing_axis.y = 0;
@@ -232,6 +233,7 @@ public:
 
  
     // Distance from each side to avoid.
+    // TODO: This should be based on half the size of the scoop.
     const double BOX_BUFFER = 0.02;
     
     // First move behind the litterbox.
@@ -251,6 +253,7 @@ public:
     geometry_msgs::Point position;
     
     // Add randomness to pick a spot in the litter box.
+    // TODO: Replace box width with dynamically calculated width.
     const double BOX_WIDTH = 0.31 - 2 * BOX_BUFFER;
 
     double horizontal = BOX_WIDTH / double(2) - ((double(rand()) / RAND_MAX) * BOX_WIDTH);
