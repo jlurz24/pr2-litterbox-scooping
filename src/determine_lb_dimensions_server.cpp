@@ -84,7 +84,7 @@ class DetermineLBDimensionsServer {
    res.width = std::min(d1, d2);
    res.depth = std::max(d1, d2);
 
-   // Convert to base frame coordinates.
+   // Convert to map coordinates.
    // Now convert from image from camera frame to world
    tf.waitForTransform("narrow_stereo_optical_frame", "map", ros::Time(0), ros::Duration(10.0));
    
