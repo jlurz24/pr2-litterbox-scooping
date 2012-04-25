@@ -97,36 +97,58 @@ class ObjectDetector {
 
       Eigen::Vector4f centroid;
       pcl::compute3DCentroid(*blobsCloud, *inliers, centroid);
-      
+
+      // Convert to non homogenous centroid.
+      // TODO: Confirm this is correct.
+      // Eigen::Vector3f centroid = centroidH.hnormalized();
+
       // Calculate the quaternion to orient the robot frame into the
       // object frame assuming the y axis points up.
-      tf::Vector3 normal(coefficients->values[0], coefficients->values[1], coefficients->values[2]);    
-      tf::Vector3 upVector(0.0, 0.0, 1.0);
+      
+      geometry_msgs::Vector3Stamped normalInImageFrame;
+      normalInImageFrame.vector.x = coefficients->values[0];
+      normalInImageFrame.vector.y = coefficients->values[1];
+      normalInImageFrame.vector.z = coefficients->values[2];
+      normalInImageFrame.header.frame_id = "wide_stereo_optical_frame";
+      normalInImageFrame.header.stamp = depthPointsMsg->header.stamp;
+
+      // Convert to world frame.
+      ros::Duration timeout(10.0);
+      tf.waitForTransform("wide_stereo_optical_frame", "map", depthPointsMsg->header.stamp, timeout);
+
+      geometry_msgs::Vector3Stamped normalStamped;
+      tf.transformVector("/map", normalInImageFrame, normalStamped);
+      tf::Vector3 normal;
+      tf::vector3MsgToTF(normalStamped.vector, normal);
+
+      tf::Vector3 upVector(1.0, 1.0, 0.0);
       tf::Vector3 rightVector = normal.cross(upVector);
       rightVector.normalized();
       tf::Quaternion q(rightVector, -1.0 * std::acos(normal.dot(upVector)));
       q.normalize();
 
+      ROS_INFO("Normalized q - x %f y %f z %f w %f", q.getAxis()[0], q.getAxis()[1], q.getAxis()[2], q.getW());
+
+      // TEMP CODE
+      geometry_msgs::Quaternion legal = tf::createQuaternionMsgFromRollPitchYaw(0, 0, 0);
+      ROS_INFO("Legal quaternion x %f y %f z %f w %f", legal.x, legal.y, legal.z, legal.w);
       // Convert the centroid and quaternion to a PoseStamped
       geometry_msgs::PoseStamped resultPose;
       resultPose.header.frame_id = "wide_stereo_optical_frame";
-      tf::quaternionTFToMsg(q, resultPose.pose.orientation);
 
       // Convert the centroid to a geometry msg point
       resultPose.pose.position.x = centroid[0];
       resultPose.pose.position.y = centroid[1];
       resultPose.pose.position.z = centroid[2];
+      tf::quaternionTFToMsg(tf::Quaternion::getIdentity(), resultPose.pose.orientation);
 
-      // Now convert from image from camera frame to world
-      ros::Duration timeout(10.0);
-      tf.waitForTransform("wide_stereo_optical_frame", "map", ros::Time(0), timeout);
-      
       geometry_msgs::PoseStamped resultPoseMap;
       resultPoseMap.header.frame_id = "/map";
       tf.transformPose("/map", resultPose, resultPoseMap);
+      tf::quaternionTFToMsg(q, resultPoseMap.pose.orientation);
 
       ROS_INFO("Point in map frame: %f, %f, %f", resultPoseMap.pose.position.x, resultPoseMap.pose.position.y, resultPoseMap.pose.position.z);
-      
+      ROS_INFO("Q in map frame: %f %f %f %f", resultPoseMap.pose.orientation.x, resultPoseMap.pose.orientation.y, resultPoseMap.pose.orientation.z, resultPoseMap.pose.orientation.w);
       // Broadcast the result
       pub.publish(resultPoseMap);
     }

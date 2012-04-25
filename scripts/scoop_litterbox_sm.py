@@ -1,9 +1,9 @@
 #! /usr/bin/python
-import roslib
+import roslib, time
 roslib.load_manifest('litterbox')
 import rospy, smach, smach_ros, traceback, litterbox.msg
 
-from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import PoseStamped
 from smach_ros import MonitorState, SimpleActionState
 from litterbox.msg import ExploreAction, MoveToPositionAction, ScoopLitterboxAction, DumpPoopAction, InitAction, InsertScooperAction
 from litterbox.msg import MoveToPositionGoal, ScoopLitterboxGoal, ExploreGoal, DumpPoopGoal, InitGoal, InsertScooperGoal
@@ -11,6 +11,10 @@ from litterbox.msg import ScooperAttached
 
 # main
 def main():
+    rospy.loginfo("Waiting to start the program");
+    time.sleep(10);
+    rospy.loginfo("Starting the state machine");
+
     rospy.init_node('scoop_litterbox_state_machine')
 
     # Create a SMACH state machine
@@ -27,13 +31,13 @@ def main():
         def move_to_litterbox_cb(userdata, goal):
           rospy.loginfo("Inside move to lb callback")
           goal = MoveToPositionGoal()
-          goal.pose = sm.userdata.litterbox_pose
+          goal.target = sm.userdata.litterbox_pose
           return goal
 
         def move_to_trash_cb(userdata, goal):
           rospy.loginfo("Inside move to trash callback")
           goal = MoveToPositionGoal()
-          goal.pose = userdata.trash_pose
+          goal.target = userdata.trash_pose
           return goal
 
 
@@ -53,7 +57,7 @@ def main():
         def scoop_litterbox_cb(userdata, goal):
           rospy.loginfo("Inside scoop litterbox callback")
           goal = ScoopLitterboxGoal()
-          goal.pose = userdata.litterbox_pose
+          goal.target = userdata.litterbox_pose
           return goal
 
         def dump_poop_cb(userdata, goal):
@@ -113,7 +117,7 @@ def main():
         with sm_con_detect_litterbox:
 
           smach.Concurrence.add('DETECT_LITTERBOX',
-                                MonitorState('object_location/Litterbox', PointStamped, detect_litterbox_cb))
+                                MonitorState('object_location/Litterbox', PoseStamped, detect_litterbox_cb))
 
           smach.Concurrence.add('EXPLORE_FOR_LB',
                                SimpleActionState('explore',
@@ -186,7 +190,7 @@ def main():
         with sm_con_detect_trash:
 
           smach.Concurrence.add('DETECT_TRASH',
-                                MonitorState('object_location/Trash', PointStamped, detect_trash_cb))
+                                MonitorState('object_location/Trash', PoseStamped, detect_trash_cb))
 
           smach.Concurrence.add('EXPLORE_FOR_TRASH',
                                SimpleActionState('explore',
