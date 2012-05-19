@@ -12,6 +12,7 @@
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/features/feature.h>
+#include <cmath>
 
 using namespace std;
 
@@ -98,13 +99,7 @@ class ObjectDetector {
       Eigen::Vector4f centroid;
       pcl::compute3DCentroid(*blobsCloud, *inliers, centroid);
 
-      // Convert to non homogenous centroid.
-      // TODO: Confirm this is correct.
-      // Eigen::Vector3f centroid = centroidH.hnormalized();
-
-      // Calculate the quaternion to orient the robot frame into the
-      // object frame assuming the y axis points up.
-      
+      // TODO: Confirm don't need to convert to non homogenous centroid. 
       geometry_msgs::Vector3Stamped normalInImageFrame;
       normalInImageFrame.vector.x = coefficients->values[0];
       normalInImageFrame.vector.y = coefficients->values[1];
@@ -118,23 +113,15 @@ class ObjectDetector {
 
       geometry_msgs::Vector3Stamped normalStamped;
       tf.transformVector("/map", normalInImageFrame, normalStamped);
-      tf::Vector3 normal;
-      tf::vector3MsgToTF(normalStamped.vector, normal);
+      
+      double yaw = atan(normalStamped.vector.x / -normalStamped.vector.y);
+      ROS_INFO("Yaw: %f", yaw);
+      geometry_msgs::Quaternion q = tf::createQuaternionMsgFromRollPitchYaw(0, 0, yaw);
 
-      tf::Vector3 upVector(1.0, 1.0, 0.0);
-      tf::Vector3 rightVector = normal.cross(upVector);
-      rightVector.normalized();
-      tf::Quaternion q(rightVector, -1.0 * std::acos(normal.dot(upVector)));
-      q.normalize();
-
-      ROS_INFO("Normalized q - x %f y %f z %f w %f", q.getAxis()[0], q.getAxis()[1], q.getAxis()[2], q.getW());
-
-      // TEMP CODE
-      geometry_msgs::Quaternion legal = tf::createQuaternionMsgFromRollPitchYaw(0, 0, 0);
-      ROS_INFO("Legal quaternion x %f y %f z %f w %f", legal.x, legal.y, legal.z, legal.w);
       // Convert the centroid and quaternion to a PoseStamped
       geometry_msgs::PoseStamped resultPose;
       resultPose.header.frame_id = "wide_stereo_optical_frame";
+      resultPose.header.stamp = depthPointsMsg->header.stamp;
 
       // Convert the centroid to a geometry msg point
       resultPose.pose.position.x = centroid[0];
@@ -144,8 +131,9 @@ class ObjectDetector {
 
       geometry_msgs::PoseStamped resultPoseMap;
       resultPoseMap.header.frame_id = "/map";
+      resultPoseMap.header.stamp = depthPointsMsg->header.stamp;
       tf.transformPose("/map", resultPose, resultPoseMap);
-      tf::quaternionTFToMsg(q, resultPoseMap.pose.orientation);
+      resultPoseMap.pose.orientation = q;
 
       ROS_INFO("Point in map frame: %f, %f, %f", resultPoseMap.pose.position.x, resultPoseMap.pose.position.y, resultPoseMap.pose.position.z);
       ROS_INFO("Q in map frame: %f %f %f %f", resultPoseMap.pose.orientation.x, resultPoseMap.pose.orientation.y, resultPoseMap.pose.orientation.z, resultPoseMap.pose.orientation.w);

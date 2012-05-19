@@ -1,0 +1,5 @@
+<launch>
+  <include file="$(find pr2_gazebo)/pr2_empty_world.launch"/>
+  <include file="$(find litterbox)/launch/load_objects.launch" />
+  <include file="$(find litterbox)/launch/sensor_nodes.launch" />
+</launch>

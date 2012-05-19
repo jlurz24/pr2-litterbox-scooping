@@ -21,6 +21,9 @@
   <depend package="smach_ros"/>
   <depend package="gazebo" />
   <depend package="tinyxml" />
+  <depend package="octomap" />
+  <depend package="octomap_ros" />
+  <depend package="image_geometry" />
 </package>
 
 
