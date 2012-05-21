@@ -45,21 +45,19 @@ class ObjectDetector {
       ROS_INFO("Detecting blob with object name %s", objectName.c_str());
 
       // Listen for message from cm vision when it sees an object.
-      blobsSub.reset(new message_filters::Subscriber<cmvision::Blobs>(nh, "/blobs", 1));
+      blobsSub.reset(new message_filters::Subscriber<cmvision::Blobs>(nh, "/blobs", 3));
       
       ROS_INFO("Waiting for depth point subscription");
       
       // List for the depth messages
-      depthPointsSub.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, "/wide_stereo/points2", 1));
+      depthPointsSub.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, "/wide_stereo/points2", 3));
       
       // Sync the two messages
-      ROS_INFO("Setting up sync");
-      sync.reset(new message_filters::TimeSynchronizer<cmvision::Blobs, sensor_msgs::PointCloud2>(*blobsSub, *depthPointsSub, 1000));
+      sync.reset(new message_filters::TimeSynchronizer<cmvision::Blobs, sensor_msgs::PointCloud2>(*blobsSub, *depthPointsSub, 10));
       
-      sync->registerCallback(boost::bind(&ObjectDetector::finalBlobCallback, this, _1, _2)); 
+      sync->registerCallback(boost::bind(&ObjectDetector::finalBlobCallback, this, _1, _2));
      
       // Publish the object location
-      ROS_INFO("Setting up publisher");
       pub = nh.advertise<geometry_msgs::PoseStamped>("object_location/" + objectName, 1000);
       ROS_INFO("Initialization complete");
     }
@@ -115,7 +113,6 @@ class ObjectDetector {
       tf.transformVector("/map", normalInImageFrame, normalStamped);
       
       double yaw = atan(normalStamped.vector.x / -normalStamped.vector.y);
-      ROS_INFO("Yaw: %f", yaw);
       geometry_msgs::Quaternion q = tf::createQuaternionMsgFromRollPitchYaw(0, 0, yaw);
 
       // Convert the centroid and quaternion to a PoseStamped
@@ -170,17 +167,17 @@ class ObjectDetector {
         pcl::SACSegmentation<pcl::PointXYZ> seg;
   
         // Optional
-        seg.setOptimizeCoefficients (true);
+        seg.setOptimizeCoefficients(true);
         
         // Mandatory
-        seg.setModelType (pcl::SACMODEL_PLANE);
-        seg.setMethodType (pcl::SAC_RANSAC);
-        seg.setDistanceThreshold (0.01);
+        seg.setModelType(pcl::SACMODEL_PLANE);
+        seg.setMethodType(pcl::SAC_RANSAC);
+        seg.setDistanceThreshold(0.01);
 
-        seg.setInputCloud (depthCloudFiltered);
-        seg.segment (*inliers, *coefficients);
+        seg.setInputCloud(depthCloudFiltered);
+        seg.segment(*inliers, *coefficients);
 
-        if (inliers->indices.size () == 0){
+        if(inliers->indices.size () == 0){
           ROS_INFO("Could not estimate a planar model for the given dataset.");
           return depthCloudFiltered;
         }
