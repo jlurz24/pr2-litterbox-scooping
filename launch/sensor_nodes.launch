@@ -1,4 +1,5 @@
 <launch>
+  <!--
   <node pkg="litterbox" type="detect_object" name="detect_litterbox" output="screen">
     <param name="object_name" value="Litterbox" />
 </node>
@@ -15,7 +16,7 @@
   <node pkg="litterbox" type="determine_lb_dimensions_server" name ="determine_lb_dimensions_server" output="screen">
     <param type="boolean" name="debug" value="true" />
   </node>
-
+-->
   <node pkg="litterbox" type="octomap_updater" name="octomap_updater" output="screen">
   </node>
 

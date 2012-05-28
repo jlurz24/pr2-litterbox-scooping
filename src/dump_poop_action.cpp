@@ -2,8 +2,8 @@
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/server/simple_action_server.h>
-#include <move_arm_msgs/MoveArmAction.h>
-#include <move_arm_msgs/utils.h>
+#include <arm_navigation_msgs/MoveArmAction.h>
+#include <arm_navigation_msgs/utils.h>
 #include <boost/math/constants/constants.hpp>
 
 // TODO: Define pre and post conditions.
@@ -11,7 +11,7 @@
 // Generated messages
 #include <litterbox/DumpPoopAction.h>
 
-typedef actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> MoveArmClient;
+typedef actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> MoveArmClient;
 
 using namespace std;
 
@@ -106,7 +106,7 @@ public:
    */
   void moveArmToJointPositions(const std::vector<double>& positions){
 
-    move_arm_msgs::MoveArmGoal goalB;
+    arm_navigation_msgs::MoveArmGoal goalB;
     std::vector<std::string> names(7);
     names[0] = "r_shoulder_pan_joint";
     names[1] = "r_shoulder_lift_joint";

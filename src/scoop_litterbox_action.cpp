@@ -3,11 +3,11 @@
 #include <pr2_controllers_msgs/SingleJointPositionAction.h>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/server/simple_action_server.h>
-#include <move_arm_msgs/MoveArmAction.h>
+#include <arm_navigation_msgs/MoveArmAction.h>
 #include <pr2_controllers_msgs/PointHeadAction.h>
-#include <move_arm_msgs/utils.h>
+#include <arm_navigation_msgs/utils.h>
 #include <pr2_controllers_msgs/JointTrajectoryAction.h>
-#include <planning_environment_msgs/GetRobotState.h>
+#include <arm_navigation_msgs/GetRobotState.h>
 #include <boost/math/constants/constants.hpp>
 #include <kinematics_msgs/GetKinematicSolverInfo.h>
 #include <kinematics_msgs/GetPositionIK.h>
@@ -19,7 +19,7 @@
 #include <litterbox/DetermineLBDimensions.h>
 
 typedef actionlib::SimpleActionClient<pr2_controllers_msgs::SingleJointPositionAction> TorsoClient;
-typedef actionlib::SimpleActionClient<move_arm_msgs::MoveArmAction> MoveArmClient;
+typedef actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> MoveArmClient;
 typedef actionlib::SimpleActionClient<pr2_controllers_msgs::PointHeadAction> PointHeadClient;
 typedef actionlib::SimpleActionClient<pr2_controllers_msgs::JointTrajectoryAction> TrajClient;
 
@@ -137,7 +137,7 @@ public:
   static const std::vector<double> getJointState(ros::NodeHandle& nh){
     ROS_INFO("Fetching the robot state");
     ros::service::waitForService("environment_server/get_robot_state");
-    ros::ServiceClient getStateClient = nh.serviceClient<planning_environment_msgs::GetRobotState>("environment_server/get_robot_state");
+    ros::ServiceClient getStateClient = nh.serviceClient<arm_navigation_msgs::GetRobotState>("environment_server/get_robot_state");
 
     std::vector<double> result;
     result.resize(7);
@@ -146,8 +146,8 @@ public:
 
     const unsigned int TARGET_LINKS = 7;
 
-    planning_environment_msgs::GetRobotState::Request request;
-    planning_environment_msgs::GetRobotState::Response response;
+    arm_navigation_msgs::GetRobotState::Request request;
+    arm_navigation_msgs::GetRobotState::Response response;
     if(getStateClient.call(request,response)){
       for(unsigned int i = 0; i < response.robot_state.joint_state.name.size(); ++i){
         for(unsigned int j = 0; j < TARGET_LINKS; ++j){

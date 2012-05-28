@@ -5,7 +5,7 @@
 #include <pr2_controllers_msgs/Pr2GripperCommandAction.h>
 #include <gazebo/SpawnModel.h>
 #include <gazebo/DeleteModel.h>
-#include <tinyxml/tinyxml.h>
+#include <tinyxml.h>
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
 #include <boost/math/constants/constants.hpp>

@@ -2,7 +2,7 @@
 #include <ros/ros.h>
 #include <actionlib/client/simple_action_client.h>
 #include <actionlib/server/simple_action_server.h>
-#include <mapping_msgs/AttachedCollisionObject.h>
+#include <arm_navigation_msgs/AttachedCollisionObject.h>
 #include <tf/tf.h>
 #include <boost/math/constants/constants.hpp>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
@@ -22,7 +22,7 @@ public:
   InitAction(const string& name): as(nh, name, boost::bind(&InitAction::init, this, _1), false), actionName(name){
     
     ROS_INFO("Starting init of the init action");
-    collisionPublisher = nh.advertise<mapping_msgs::AttachedCollisionObject>("attached_collision_object", 10);    
+    collisionPublisher = nh.advertise<arm_navigation_msgs::AttachedCollisionObject>("attached_collision_object", 10);    
     as.start();
     initialPosePublisher = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("initialpose", 10);
   }
@@ -39,19 +39,19 @@ public:
     ROS_INFO("Attaching the virtual scoop");
 
     // Add the scoop into the collision space
-    mapping_msgs::AttachedCollisionObject scoop;
+    arm_navigation_msgs::AttachedCollisionObject scoop;
     scoop.link_name = "r_gripper_palm_link";
     scoop.touch_links.push_back("r_gripper_r_finger_link");
     scoop.touch_links.push_back("r_gripper_l_finger_link");
     scoop.touch_links.push_back("r_gripper_l_finger_tip_link");
     scoop.touch_links.push_back("r_gripper_r_finger_tip_link");
     scoop.object.id = "scoop";
-    scoop.object.operation.operation = mapping_msgs::CollisionObjectOperation::ADD;
+    scoop.object.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
     scoop.object.header.frame_id = "/r_gripper_tool_frame";
     scoop.object.header.stamp = ros::Time::now();
 
-    geometric_shapes_msgs::Shape object;
-    object.type = geometric_shapes_msgs::Shape::BOX;
+    arm_navigation_msgs::Shape object;
+    object.type = arm_navigation_msgs::Shape::BOX;
     object.dimensions.resize(3);
     object.dimensions[0] = 0.08;
     object.dimensions[1] = 0.08;

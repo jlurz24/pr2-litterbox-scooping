@@ -15,7 +15,7 @@
 #include <sensor_msgs/point_cloud_conversion.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
-#include <mapping_msgs/CollisionMap.h>
+#include <arm_navigation_msgs/CollisionMap.h>
 
 using namespace std;
 
@@ -34,7 +34,7 @@ class OctomapUpdater {
 
     tf::TransformListener tf;
     auto_ptr<octomap::OcTreeROS> octomap;
-    auto_ptr<message_filters::Subscriber<sensor_msgs::PointCloud2> > depthPointsSub;
+    ros::Subscriber depthPointsSub;
 
     auto_ptr<CameraSubscriber> lCameraSubscriber;
     auto_ptr<CameraSubscriber> rCameraSubscriber;
@@ -46,29 +46,28 @@ class OctomapUpdater {
 
  public:
     OctomapUpdater() : privateHandle("~"), cameraModelInitialized(false), lCameraSubscriber(new CameraSubscriber), rCameraSubscriber(new CameraSubscriber), cameraSync(new LRCameraSync(3)){
-      ROS_INFO("Octomap Updater");
+
       double resolution;
       privateHandle.param<double>("resolution", resolution, 0.1);
       privateHandle.param<double>("max_range", maxRange, 5.0);
 
       privateHandle.param<std::string>("fixed_frame", fixedFrame, "/base_link");
-      privateHandle.param<std::string>("sensor_name", sensorName, "/narrow_stereo_textured/points2");
+      privateHandle.param<std::string>("sensor_name", sensorName, "/narrow_stereo/left/points");
       octomap.reset(new octomap::OcTreeROS(resolution));
 
       cameraModel.reset(new image_geometry::StereoCameraModel);
 
       // List for the depth messages
-      depthPointsSub.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, sensorName, 1));
-
-      depthPointsSub->registerCallback(boost::bind(&OctomapUpdater::depthCloudCallback, this, _1));
-      lCameraSubscriber->subscribe(nh, "/narrow_stereo/left_camera_info", 3);
-      rCameraSubscriber->subscribe(nh, "/narrow_stereo/right_camera_info", 3);
+      ros::topic::waitForMessage<sensor_msgs::PointCloud2>(sensorName, nh);
+      depthPointsSub = nh.subscribe(sensorName, 1, &OctomapUpdater::depthCloudCallback, this);
+      lCameraSubscriber->subscribe(nh, "/narrow_stereo/left/camera_info", 3);
+      rCameraSubscriber->subscribe(nh, "/narrow_stereo/right/camera_info", 3);
       cameraSync->connectInput(*lCameraSubscriber, *rCameraSubscriber);
 
       cameraSync->registerCallback(boost::bind(&OctomapUpdater::cameraInfoCallback, this, _1, _2));
 
       occupiedPub = nh.advertise<visualization_msgs::Marker>("occupied_cells", 1, false);
-      cmapPub = nh.advertise<mapping_msgs::CollisionMap>("collision_map_out", 1, true);
+      cmapPub = nh.advertise<arm_navigation_msgs::CollisionMap>("collision_map_out", 1, true);
       pointCloudPub = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_out", 1, true);
 
       ROS_INFO("Initialization complete of OctomapUpdater");
@@ -80,36 +79,32 @@ class OctomapUpdater {
     void depthCloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud){
 
       ROS_INFO("Depth cloud callback received");
-
-      // Convert to world frame
-      ros::Duration timeout(10.0);
-      bool haveTransform = tf.waitForTransform(fixedFrame, cloud->header.frame_id, cloud->header.stamp, timeout);
+     
+      // Gazebo fails to properly set the frame id on cloud.
+      sensor_msgs::PointCloud2 cloud2(*cloud);
+      cloud2.header.frame_id = "narrow_stereo_optical_frame"; 
+      ros::WallTime beginTransformTime = ros::WallTime::now();
+      sensor_msgs::PointCloud2 worldCloud;
+      worldCloud.header = cloud2.header;
+      worldCloud.header.frame_id = fixedFrame;
+      bool haveTransform = tf.waitForTransform(cloud2.header.frame_id, fixedFrame, cloud2.header.stamp, ros::Duration(3));
 
       if(!haveTransform){
-        ROS_INFO("Failed to retrieve transform prior to timeout. Skipping message");
+        ROS_INFO("Failed to retrieve transform");
         return;
       }
-    
-      ros::WallTime beginTransformTime = ros::WallTime::now();
-      tf::StampedTransform toWorld;
-      tf.lookupTransform (fixedFrame, cloud->header.frame_id, cloud->header.stamp, toWorld);
+      pcl_ros::transformPointCloud(fixedFrame, cloud2, worldCloud, tf);
 
-      Eigen::Matrix4f toWorldEigenTransform;
-      sensor_msgs::PointCloud2 worldCloud;
-      worldCloud.header = cloud->header;
-      worldCloud.header.frame_id = fixedFrame;
-      pcl_ros::transformAsMatrix(toWorld, toWorldEigenTransform);
-      pcl_ros::transformPointCloud(toWorldEigenTransform, *cloud, worldCloud);
-      
       ros::WallTime endTransformTime = ros::WallTime::now();
       ROS_INFO("Transform took %f seconds", (endTransformTime - beginTransformTime).toSec());
 
       // Get the sensor origin.
-      octomap->insertScan(worldCloud, getSensorOrigin(cloud->header), maxRange);
+      octomap->insertScan(worldCloud, getSensorOrigin(cloud2.header), maxRange);
       ros::WallTime endInsertTime = ros::WallTime::now();
       ROS_INFO("Insert scan took %f seconds", (endInsertTime - endTransformTime).toSec());      
 
       // Publish updates.
+      ROS_INFO("Preparing to publish");
       std::vector<geometry_msgs::Point> occPoints;
       if(occupiedPub.getNumSubscribers() > 0 || cmapPub.getNumSubscribers() > 0 || pointCloudPub.getNumSubscribers() > 0){
         occPoints = getOccupiedPoints();
@@ -127,6 +122,7 @@ class OctomapUpdater {
         publishPointCloud(occPoints, worldCloud.header);
         ROS_INFO("Publishing an update too %f seconds", (ros::WallTime::now() - endInsertTime).toSec());
       }
+      ROS_INFO("Callback complete");
     }
 
     void publishPointCloud(const std::vector<geometry_msgs::Point>& points, const std_msgs::Header &header){
@@ -181,10 +177,10 @@ class OctomapUpdater {
         return;
       }
 
-     mapping_msgs::CollisionMap cmap;
+     arm_navigation_msgs::CollisionMap cmap;
      cmap.header = header;
 
-     mapping_msgs::OrientedBoundingBox box;
+     arm_navigation_msgs::OrientedBoundingBox box;
      box.extents.x = box.extents.y = box.extents.z = octomap->octree.getResolution();
      box.axis.x = box.axis.y = 0.0; box.axis.z = 1.0;
      box.angle = 0.0;
@@ -218,9 +214,8 @@ class OctomapUpdater {
       ROS_INFO("Got camera info: %d x %d, %d x %d\n", leftCameraInfo->height, leftCameraInfo->width, rightCameraInfo->height, rightCameraInfo->width);
       cameraModel->fromCameraInfo(*leftCameraInfo, *rightCameraInfo);
       cameraModelInitialized = true;
-      cameraSync.release();
-      lCameraSubscriber.release();
-      rCameraSubscriber.release();
+      lCameraSubscriber->unsubscribe();
+      rCameraSubscriber->unsubscribe();
     }
 
     pcl::PointXYZ getSensorOrigin(const std_msgs::Header& sensorHeader) const {

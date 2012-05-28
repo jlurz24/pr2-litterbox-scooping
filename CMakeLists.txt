@@ -38,4 +38,4 @@ rosbuild_add_executable(display_rectangles src/display_rectangles.cpp src/find_r
 rosbuild_add_executable(move_left_arm_away src/move_left_arm_away.cpp)
 rosbuild_add_executable(move_right_arm_away src/move_right_arm_away.cpp)
 rosbuild_add_executable(octomap_updater src/octomap_updater.cpp)
-
+target_link_libraries(insert_scooper tinyxml)

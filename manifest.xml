@@ -19,12 +19,11 @@
   <depend package="pcl_ros"/>
   <depend package="smach"/>
   <depend package="smach_ros"/>
-  <depend package="gazebo" />
-  <depend package="tinyxml" />
+  <depend package="gazebo" /> 
   <depend package="octomap" />
   <depend package="octomap_ros" />
   <depend package="image_geometry" />
-  <depend package="mapping_msgs" />
+  <rosdep name="tinyxml" />
 </package>
 
 
