@@ -23,17 +23,20 @@ typedef message_filters::Synchronizer<message_filters::sync_policies::Approximat
 
 typedef message_filters::Subscriber<sensor_msgs::CameraInfo> CameraSubscriber;
 
+typedef octomap::OctomapROS<octomap::OcTreeStamped> OctomapType;
+
 class OctomapUpdater {
   private:
     ros::NodeHandle nh;
     ros::NodeHandle privateHandle;
     bool cameraModelInitialized;
+
     std::string fixedFrame;
     std::string sensorName;
     double maxRange;
 
     tf::TransformListener tf;
-    auto_ptr<octomap::OcTreeROS> octomap;
+    auto_ptr<OctomapType> octomap;
     ros::Subscriber depthPointsSub;
 
     auto_ptr<CameraSubscriber> lCameraSubscriber;
@@ -43,9 +46,13 @@ class OctomapUpdater {
     ros::Publisher occupiedPub;
     ros::Publisher cmapPub;
     ros::Publisher pointCloudPub;
-
+    ros::Timer timer;
  public:
-    OctomapUpdater() : privateHandle("~"), cameraModelInitialized(false), lCameraSubscriber(new CameraSubscriber), rCameraSubscriber(new CameraSubscriber), cameraSync(new LRCameraSync(3)){
+    OctomapUpdater() : privateHandle("~"),
+    cameraModelInitialized(false),
+    lCameraSubscriber(new CameraSubscriber),
+    rCameraSubscriber(new CameraSubscriber),
+    cameraSync(new LRCameraSync(3)){
 
       double resolution;
       privateHandle.param<double>("resolution", resolution, 0.1);
@@ -53,7 +60,28 @@ class OctomapUpdater {
 
       privateHandle.param<std::string>("fixed_frame", fixedFrame, "/base_link");
       privateHandle.param<std::string>("sensor_name", sensorName, "/narrow_stereo/left/points");
-      octomap.reset(new octomap::OcTreeROS(resolution));
+      octomap.reset(new OctomapType(resolution));
+
+      // Defaults are from octomap.
+      double occupancyThresh = 0.5;
+      double probHit = 0.7;
+      double probMiss = 0.4;
+      double threshMin = 0.1192;
+      double threshMax = 0.971;
+      double degradeTolerance = 1;
+
+      privateHandle.param("sensor_model_occ_thresh", occupancyThresh, occupancyThresh);
+      privateHandle.param("sensor_model_hit", probHit, probHit);
+      privateHandle.param("sensor_model_miss", probMiss, probMiss);
+      privateHandle.param("sensor_model_thresh_min", threshMin, threshMin);
+      privateHandle.param("sensor_model_thresh_max", threshMax, threshMax);
+      privateHandle.param("degrade_tolerance", degradeTolerance, degradeTolerance);
+
+      octomap->octree.setOccupancyThres(occupancyThresh);
+      octomap->octree.setProbHit(probHit);
+      octomap->octree.setProbMiss(probMiss);
+      octomap->octree.setClampingThresMin(threshMin);
+      octomap->octree.setClampingThresMax(threshMax); 
 
       cameraModel.reset(new image_geometry::StereoCameraModel);
 
@@ -70,19 +98,22 @@ class OctomapUpdater {
       cmapPub = nh.advertise<arm_navigation_msgs::CollisionMap>("collision_map_out", 1, true);
       pointCloudPub = nh.advertise<sensor_msgs::PointCloud2>("point_cloud_out", 1, true);
 
+      // Setup a timer to display updates.
+      double publishInterval;
+      privateHandle.param<double>("publish_interval", publishInterval, 1.0);
+      timer = nh.createTimer(ros::Duration(publishInterval), &OctomapUpdater::publishUpdates, this);
+      
       ROS_INFO("Initialization complete of OctomapUpdater");
-    }
-    
-    ~OctomapUpdater(){
     }
 
     void depthCloudCallback(const sensor_msgs::PointCloud2ConstPtr& cloud){
-
       ROS_INFO("Depth cloud callback received");
      
       // Gazebo fails to properly set the frame id on cloud.
       sensor_msgs::PointCloud2 cloud2(*cloud);
-      cloud2.header.frame_id = "narrow_stereo_optical_frame"; 
+      cloud2.header.frame_id = "narrow_stereo_optical_frame";
+
+      // Transform the cloud to global coordinates.
       ros::WallTime beginTransformTime = ros::WallTime::now();
       sensor_msgs::PointCloud2 worldCloud;
       worldCloud.header = cloud2.header;
@@ -94,43 +125,52 @@ class OctomapUpdater {
         return;
       }
       pcl_ros::transformPointCloud(fixedFrame, cloud2, worldCloud, tf);
-
       ros::WallTime endTransformTime = ros::WallTime::now();
       ROS_INFO("Transform took %f seconds", (endTransformTime - beginTransformTime).toSec());
 
-      // Get the sensor origin.
+      // Insert the scan.
       octomap->insertScan(worldCloud, getSensorOrigin(cloud2.header), maxRange);
-      ros::WallTime endInsertTime = ros::WallTime::now();
-      ROS_INFO("Insert scan took %f seconds", (endInsertTime - endTransformTime).toSec());      
 
+      // Degrade outdated information.
+      degradeOutdatedPoints(worldCloud.header.stamp);
+
+      ros::WallTime endInsertTime = ros::WallTime::now();
+      ROS_INFO("Insert scan took %f seconds", (endInsertTime - endTransformTime).toSec());
+  }
+  
+  /**
+   * Degrade points that have not been observed
+   * recently.
+   */
+  void degradeOutdatedPoints(ros::Time sensorTime){
+    octomap->octree.degradeOutdatedNodes(1);
+  }
+ 
+  void publishUpdates(const ros::TimerEvent& event) const {
+      std_msgs::Header header;
+      header.frame_id = fixedFrame;
+      header.stamp = ros::Time::now();
+
+      ros::WallTime publishStartTime = ros::WallTime::now();
       // Publish updates.
-      ROS_INFO("Preparing to publish");
       std::vector<geometry_msgs::Point> occPoints;
       if(occupiedPub.getNumSubscribers() > 0 || cmapPub.getNumSubscribers() > 0 || pointCloudPub.getNumSubscribers() > 0){
         occPoints = getOccupiedPoints();
       }
 
       if(occupiedPub.getNumSubscribers() > 0){
-        publishOccupiedPoints(occPoints, worldCloud.header);
-        ROS_INFO("Publishing an update took %f seconds", (ros::WallTime::now() - endInsertTime).toSec());
+        publishOccupiedPoints(occPoints, header);
       }
       if(cmapPub.getNumSubscribers() > 0){
-        publishCollisionMap(occPoints, worldCloud.header);
-        ROS_INFO("Publishing an update took %f seconds", (ros::WallTime::now() - endInsertTime).toSec());
+        publishCollisionMap(occPoints, header);
       }
       if(pointCloudPub.getNumSubscribers() > 0){
-        publishPointCloud(occPoints, worldCloud.header);
-        ROS_INFO("Publishing an update too %f seconds", (ros::WallTime::now() - endInsertTime).toSec());
+        publishPointCloud(occPoints, header);
       }
-      ROS_INFO("Callback complete");
+      ROS_INFO("Publishing an update took %f seconds", (ros::WallTime::now() - publishStartTime).toSec());
     }
 
-    void publishPointCloud(const std::vector<geometry_msgs::Point>& points, const std_msgs::Header &header){
-     if(points.size() <= 1){
-       ROS_INFO("No points to publish");
-       return;
-     }
-
+    void publishPointCloud(const std::vector<geometry_msgs::Point>& points, const std_msgs::Header &header) const {
      pcl::PointCloud<pcl::PointXYZ> cloud;
      cloud.points.reserve(points.size());
 
@@ -147,11 +187,8 @@ class OctomapUpdater {
     cloud2.header = header;
     pointCloudPub.publish(cloud2);
   }
-    void publishOccupiedPoints(const std::vector<geometry_msgs::Point>& points, const std_msgs::Header& header){
-      if(points.size() <= 1){
-        ROS_INFO("No points to publish");
-        return;
-      }
+
+  void publishOccupiedPoints(const std::vector<geometry_msgs::Point>& points, const std_msgs::Header& header) const {
 
       visualization_msgs::Marker occupiedCellsVis;
       occupiedCellsVis.header = header;
@@ -171,11 +208,7 @@ class OctomapUpdater {
       occupiedPub.publish(occupiedCellsVis); 
     }
 
-    void publishCollisionMap(const std::vector<geometry_msgs::Point>& points, const std_msgs::Header& header) {
-      if(points.size() <= 1){
-        ROS_INFO("No points to publish");
-        return;
-      }
+    void publishCollisionMap(const std::vector<geometry_msgs::Point>& points, const std_msgs::Header& header) const {
 
      arm_navigation_msgs::CollisionMap cmap;
      cmap.header = header;
@@ -198,7 +231,7 @@ class OctomapUpdater {
     std::vector<geometry_msgs::Point> getOccupiedPoints() const {
       std::vector<geometry_msgs::Point> points;
       points.reserve(octomap->octree.size() / 2.0);
-      for (octomap::OcTreeROS::OcTreeType::iterator it = octomap->octree.begin(), end = octomap->octree.end(); it != end; ++it){
+      for (OctomapType::OcTreeType::iterator it = octomap->octree.begin(), end = octomap->octree.end(); it != end; ++it){
         if (octomap->octree.isNodeOccupied(*it)){
           geometry_msgs::Point p;
           p.x = it.getX();
