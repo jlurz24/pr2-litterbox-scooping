@@ -1,6 +1,5 @@
 <launch>
-  <!-- machine tags for sim, be sure to set environment variable ROBOT to sim. Only needed for simulation -->
-  <include file="$(find pr2_machine)/sim.machine" />
+  <include file="$(find pr2_machine)/$(env ROBOT).machine" />
   
   <!-- Navigation stack -->
   <include file="$(find pr2_navigation_global)/amcl_node.xml" />
