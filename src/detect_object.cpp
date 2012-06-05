@@ -50,7 +50,7 @@ class ObjectDetector {
       ROS_INFO("Waiting for depth point subscription");
       
       // List for the depth messages
-      depthPointsSub.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, "/wide_stereo/points2", 3));
+      depthPointsSub.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, "/wide_stereo/left/points", 3));
       
       // Sync the two messages
       sync.reset(new message_filters::TimeSynchronizer<cmvision::Blobs, sensor_msgs::PointCloud2>(*blobsSub, *depthPointsSub, 10));
@@ -70,13 +70,6 @@ class ObjectDetector {
         return;
       }
 
-      // Determine if the message is valid
-      // TODO: Accept valid sparse messages
-      if(depthPointsMsg->width != 640 && depthPointsMsg->height != 480){
-        ROS_INFO("Ignoring an invalid stereo points message with width %d and height %d", depthPointsMsg->width, depthPointsMsg->height);
-        return;
-      }
-
       // Check if there is a detected blob.
       if(blobsMsg->blobs.size() == 0){
         ROS_INFO("No blobs detected");
@@ -85,10 +78,11 @@ class ObjectDetector {
       
       PointCloudPtr depthCloud(new PointCloud);
       pcl::fromROSMsg(*depthPointsMsg, *depthCloud);
-      pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
-      pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
 
-      const PointCloudPtr blobsCloud = detectPlane(depthCloud, blobsMsg, inliers, coefficients);
+      pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+      pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+
+      const PointCloudConstPtr blobsCloud = detectPlane(depthCloud, blobsMsg, inliers, coefficients);
       if(blobsCloud.get() == NULL || inliers->indices.size() == 0){
         ROS_INFO("No inliers to use for centroid detection");
         return;
@@ -140,7 +134,8 @@ class ObjectDetector {
 
     const PointCloudPtr detectPlane(const PointCloudConstPtr& depthCloud, const cmvision::BlobsConstPtr& blobsMsg, pcl::PointIndices::Ptr inliers, pcl::ModelCoefficients::Ptr coefficients){
          
-       PointCloudPtr depthCloudFiltered(new PointCloud());
+       PointCloudPtr depthCloudFiltered(new PointCloud);
+
        depthCloudFiltered->header = depthCloud->header;
        depthCloudFiltered->is_dense = false;
        depthCloudFiltered->height = 1;
@@ -150,18 +145,18 @@ class ObjectDetector {
           if(objectName.size() > 0 && objectName != blob.colorName){
             continue;
           }
-
           for(unsigned int i = blob.left; i <= blob.right; ++i){
-            for(unsigned int j =  blob.top; j <= blob.bottom; ++j){
-              depthCloudFiltered->push_back(depthCloud->at(i, j));
+            for(unsigned int j = blob.top; j <= blob.bottom; ++j){
+              pcl::PointXYZ point = depthCloud->points.at(j * blobsMsg->image_width + i);
+              depthCloudFiltered->push_back(point);
             }
           }
-        }
+       }
         
-        if(depthCloudFiltered->points.size() == 0){
+       if(depthCloudFiltered->points.size() == 0){
           ROS_INFO("No blob points found.");
           return depthCloudFiltered;
-        }
+       }
 
         // Create the segmentation object
         pcl::SACSegmentation<pcl::PointXYZ> seg;

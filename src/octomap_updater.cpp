@@ -39,16 +39,16 @@ class OctomapUpdater {
  public:
     OctomapUpdater() : mPNH("~"){
 
-      mPNH.param("max_range", mMaxRange, 5.0);
+      mPNH.param("max_range", mMaxRange, 2.5);
       mPNH.param<std::string>("fixed_frame", mFixedFrame, "/base_link");
       mPNH.param("degrade_tolerance", mDegradeTolerance, 1.0);
 
       // Defaults are from octoMap.
       double occupancyThresh = 0.5;
-      double probHit = 0.7;
-      double probMiss = 0.4;
-      double threshMin = 0.1192;
-      double threshMax = 0.971;
+      double probHit = 0.8;
+      double probMiss = 0.31;
+      double threshMin = 0.12;
+      double threshMax = 0.95;
       double resolution = 0.1;
       
       mPNH.param("sensor_model_occ_thresh", occupancyThresh, occupancyThresh);
@@ -67,12 +67,12 @@ class OctomapUpdater {
 
       // List for the depth messages
       std::string imageSensorName;
-      mPNH.param<std::string>("sensor_name", imageSensorName, "/narrow_stereo/left/points"); // TODO: filtered
+      mPNH.param<std::string>("sensor_name", imageSensorName, "/narrow_stereo_textured/points2_filtered_attached");
       ros::topic::waitForMessage<sensor_msgs::PointCloud2>(imageSensorName, mNH);
       mDepthPointsSub = mNH.subscribe(imageSensorName, 1, &OctomapUpdater::depthCloudCallback, this);
       
       std::string laserSensorName;
-      mPNH.param<std::string>("sensor_name", laserSensorName, "tilt_scan_filtered");
+      mPNH.param<std::string>("sensor_name", laserSensorName, "/tilt_scan_cloud_filtered2");
       ros::topic::waitForMessage<sensor_msgs::PointCloud2>(laserSensorName, mNH);
       mLaserPointsSub = mNH.subscribe(laserSensorName, 1, &OctomapUpdater::depthCloudCallback, this);
 

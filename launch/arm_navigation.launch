@@ -27,12 +27,6 @@
   <!-- Move right arm away -->
   <node name="move_right_arm_away" pkg="litterbox" type="move_right_arm_away" respawn="false" output="screen" />
   
-  <!-- For object detection -->
-  <node pkg="point_cloud_converter" name="point_cloud_converter2" type="point_cloud_converter">
-    <remap from="/points_in" to="/wide_stereo/points" />
-    <remap from="/points2_out" to="/wide_stereo/points2" />
-  </node>
-  
   <param name="cmvision/color_file" type="string" value="$(find litterbox)/colors.txt"/>
 
   <include file="$(find cmvision)/cmvision.launch"/>
