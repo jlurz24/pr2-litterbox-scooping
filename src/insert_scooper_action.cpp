@@ -28,7 +28,7 @@ static const string SCOOP_MODEL_NAME = "scoop";
  */
 class InsertScooper {
 public:
-  InsertScooper(const string& name): privateHandle("~"), as(nh, name, boost::bind(&InsertScooper::insertScooper, this, _1), false), actionName(name){
+  InsertScooper(const string& name): privateHandle("~"), scoopInserted(false), as(nh, name, boost::bind(&InsertScooper::insertScooper, this, _1), false), actionName(name){
 
     ROS_INFO("Starting init of the insert gripper action");
 
@@ -91,6 +91,7 @@ public:
     ros::NodeHandle privateHandle;
 
     bool isSimulation;
+    bool scoopInserted;
     int waitTime;
 
     // Actionlib classes
@@ -105,16 +106,18 @@ public:
     litterbox::InsertScooperResult result;
 
     bool insertScooperSim(){
-        // Delete the scoop first.
-        ros::service::waitForService("gazebo/delete_model");
-        ros::ServiceClient deleteClient = nh.serviceClient<gazebo::DeleteModel> ("/gazebo/delete_model", true);
-        ROS_INFO("Connected to delete model client. Deleting the scoop model"); 
+        if(scoopInserted){
+          // Delete the scoop first.
+          ros::service::waitForService("gazebo/delete_model");
+          ros::ServiceClient deleteClient = nh.serviceClient<gazebo::DeleteModel> ("/gazebo/delete_model", true);
+          ROS_INFO("Connected to delete model client. Deleting the scoop model"); 
        
-        gazebo::DeleteModel deleteModel;
-        deleteModel.request.model_name = SCOOP_MODEL_NAME;
-        deleteClient.call(deleteModel);
-        ROS_INFO("Delete scoop model complete");
-        
+          gazebo::DeleteModel deleteModel;
+          deleteModel.request.model_name = SCOOP_MODEL_NAME;
+          deleteClient.call(deleteModel);
+          ROS_INFO("Delete scoop model complete");
+        }
+
         // Now add the model
         ros::service::waitForService("gazebo/spawn_gazebo_model");
         ros::ServiceClient gazeboClient = nh.serviceClient<gazebo::SpawnModel> ("/gazebo/spawn_gazebo_model", true);
@@ -155,6 +158,7 @@ public:
             ROS_INFO("Add model call failed");
         }
         else {
+            scoopInserted = true;
             ROS_INFO("Added successfully");
         }
         ROS_INFO("Response status: %s", model.response.status_message.c_str());

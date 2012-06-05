@@ -34,14 +34,7 @@ class DetermineLBDimensionsServer {
    sensor_msgs::PointCloud2ConstPtr imagePoints;
    while(!haveValid3d){
      ROS_INFO("Waiting for 3d points message");
-     imagePoints = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/narrow_stereo/points2");
-
-     // Determine if the message is valid
-     // TODO: Accept valid sparse messages
-     if(imagePoints->width != 640 && imagePoints->height != 480){
-       ROS_INFO("Ignoring an invalid stereo points message with width %d and height %d", imagePoints->width, imagePoints->height);
-       continue;
-     }
+     imagePoints = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/narrow_stereo/left/points2");
      haveValid3d = true;
    }
 

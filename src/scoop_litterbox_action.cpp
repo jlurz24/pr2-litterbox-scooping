@@ -40,7 +40,7 @@ public:
     as.registerPreemptCallback(boost::bind(&ScoopLitterboxAction::preemptCB, this));
     torsoClient = initClient<TorsoClient>("torso_controller/position_joint_action");
     rightArmClient = initClient<MoveArmClient>("move_right_arm");
-    trajectoryClient =initClient<TrajClient>("r_arm_controller/joint_trajectory_action"); //LZ
+    trajectoryClient =initClient<TrajClient>("r_arm_controller/joint_trajectory_action");
     pointHeadClient = initClient<PointHeadClient>("/head_traj_controller/point_head_action"); 
     as.start();
     ROS_INFO("Initialization complete");
@@ -195,7 +195,7 @@ public:
 
     goal.target.point = point;
     goal.target.header.frame_id = "map";
-    goal.pointing_frame = "wide_stereo_optical";
+    goal.pointing_frame = "wide_stereo_optical_frame";
     goal.pointing_axis.x = 1;
     goal.pointing_axis.y = 0;
     goal.pointing_axis.z = 0;
