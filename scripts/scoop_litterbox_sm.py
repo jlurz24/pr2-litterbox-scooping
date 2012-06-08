@@ -11,8 +11,6 @@ from litterbox.msg import ScooperAttached
 
 # main
 def main():
-    rospy.loginfo("Waiting to start the program");
-    time.sleep(10);
     rospy.loginfo("Starting the state machine");
 
     rospy.init_node('scoop_litterbox_state_machine')
@@ -128,7 +126,7 @@ def main():
 
         smach.StateMachine.add('CON_DETECT_LITTERBOX', sm_con_detect_litterbox,
                                transitions={'detected':'MOVE_TO_LITTERBOX',
-                                            'notdetected':'failure'})
+                                            'notdetected':'CON_DETECT_LITTERBOX'})
 
         sm_con_move_to_litterbox = smach.Concurrence(
           outcomes=['reached','notreached','scooper_dropped'],
@@ -142,6 +140,7 @@ def main():
         )
 
         with sm_con_move_to_litterbox:
+            
             smach.Concurrence.add('MOVE_TO_LITTERBOX_INTERNAL',
                                    SimpleActionState('move_to_position',
                                    MoveToPositionAction,
@@ -161,7 +160,7 @@ def main():
                                                 InsertScooperAction,
                                                 goal_cb=insert_scooper_cb,
                                                 input_keys=[]),
-                                                transitions={'succeeded':'CON_DETECT_LITTERBOX',
+                                                transitions={'succeeded':'MOVE_TO_LITTERBOX',
                                                              'preempted':'failure',
                                                              'aborted':'failure'})
                                

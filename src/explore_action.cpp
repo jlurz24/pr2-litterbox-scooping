@@ -5,6 +5,7 @@
 #include <move_base_msgs/MoveBaseAction.h>
 #include <tf/tf.h>
 #include <boost/math/constants/constants.hpp>
+#include <pr2_controllers_msgs/PointHeadAction.h>
 
 // TODO: Define pre and post conditions.
 
@@ -12,6 +13,7 @@
 #include <litterbox/ExploreAction.h>
 
 typedef actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> MoveBaseClient;
+typedef actionlib::SimpleActionClient<pr2_controllers_msgs::PointHeadAction> PointHeadClient;
 
 using namespace std;
 
@@ -52,20 +54,38 @@ public:
       return;
     }
 
+    // Head pointing is not currently cancellable.
+    {
+      std::auto_ptr<PointHeadClient> pointerClient = initClient<PointHeadClient>("/head_traj_controller/point_head_action");
+      pr2_controllers_msgs::PointHeadGoal phGoal;
+
+      // Look at the ground 10 meters away at 12 oclock.
+      phGoal.target.point.x = 10;
+      phGoal.target.point.y = 0;
+      phGoal.target.point.z = 0;
+      phGoal.target.header.frame_id = "base_link";
+      sendGoal(pointerClient, phGoal, nh);
+    }
+
     move_base_msgs::MoveBaseGoal moveGoal;
     moveGoal.target_pose.header.frame_id = "base_link";
     moveGoal.target_pose.header.stamp = ros::Time::now();
+    const unsigned int NUM_STEPS = 8;
 
-    // Rotate one quarter at a time to resolve ambiguity about which way to spin. 
-    moveGoal.target_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, boost::math::constants::pi<double>() / 2.0);
+    // Rotate one arc at a time to resolve ambiguity about which way to spin. 
+    moveGoal.target_pose.pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0, 0, boost::math::constants::pi<double>() / (NUM_STEPS / 2));
 
-    ROS_INFO("Exploring");
-    for(unsigned int i = 0; i < 4; ++i){
+    // Pause prior to starting to allow detection to catch up.
+    ros::Duration(5.0).sleep();
+    for(unsigned int i = 0; i < NUM_STEPS; ++i){
       if(as.isPreemptRequested() || !ros::ok()){
         as.setPreempted();
         return;
       }
-      
+
+      // Pause
+      ros::Duration(1.0).sleep(); 
+
       sendGoal(baseClient, moveGoal, nh);
     }
 

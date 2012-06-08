@@ -32,7 +32,7 @@
     if (nh.ok()){
       ROS_INFO("Sending goal");
       client->sendGoal(goal);
-      if(!client->waitForResult(ros::Duration(200.0))){
+      if(!client->waitForResult(ros::Duration(20.0))){
         client->cancelGoal();
         ROS_INFO("Timed out achieving goal");
       }

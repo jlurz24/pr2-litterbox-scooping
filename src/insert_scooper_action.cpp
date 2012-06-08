@@ -54,7 +54,7 @@ public:
     // TODO: Determine if there is anywhere we should allow
     //       canceling in this method.
     pr2_controllers_msgs::Pr2GripperCommandGoal open;
-    open.command.position = 0.08;
+    open.command.position = 0.06;
     open.command.max_effort = -1.0;
     sendGoal(gripperClient, open, nh);
 
@@ -115,6 +115,7 @@ public:
           gazebo::DeleteModel deleteModel;
           deleteModel.request.model_name = SCOOP_MODEL_NAME;
           deleteClient.call(deleteModel);
+          ros::Duration(1.0).sleep();
           ROS_INFO("Delete scoop model complete");
         }
 

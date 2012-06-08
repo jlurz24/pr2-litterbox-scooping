@@ -34,7 +34,7 @@ class DetermineLBDimensionsServer {
    sensor_msgs::PointCloud2ConstPtr imagePoints;
    while(!haveValid3d){
      ROS_INFO("Waiting for 3d points message");
-     imagePoints = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/narrow_stereo/left/points2");
+     imagePoints = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/narrow_stereo/left/points");
      haveValid3d = true;
    }
 
@@ -67,7 +67,7 @@ class DetermineLBDimensionsServer {
    std::vector<pcl::PointXYZ> contour3d;
    contour3d.resize(4);
    for(unsigned int i = 0; i < contour3d.size(); ++i){
-     contour3d[i] = depthCloud->at(contour[i].x, contour[i].y);
+     contour3d[i] = depthCloud->points.at(contour[i].y * image->width + contour[i].x);
    }
 
    double d1 = calc3DDistance(contour3d[0], contour3d[1]);

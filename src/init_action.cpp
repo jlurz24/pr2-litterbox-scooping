@@ -6,7 +6,7 @@
 #include <tf/tf.h>
 #include <boost/math/constants/constants.hpp>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
-
+#include <arm_navigation_msgs/SetPlanningSceneDiff.h>
 // TODO: Define pre and post conditions.
 
 // Generated messages
@@ -89,11 +89,22 @@ public:
       ros::Duration(2).sleep();
     }
     initialPosePublisher.publish(initialPose);
+    
+    // Set the planning scene so direct arm movement can be performed
+    ros::ServiceClient sceneClient = nh.serviceClient<arm_navigation_msgs::SetPlanningSceneDiff>("/environment_server/set_planning_scene_diff");
+    ROS_INFO("Waiting for planning scene service");
+    sceneClient.waitForExistence();
+    
+    arm_navigation_msgs::SetPlanningSceneDiff::Request planningSceneReq;
+    arm_navigation_msgs::SetPlanningSceneDiff::Response planningSceneRes;
 
+    if(!sceneClient.call(planningSceneReq, planningSceneRes)){
+      ROS_WARN("Failed to set planning scene");
+    }
+    else {
+      ROS_INFO("Planning scene set successfully");
+    }
     as.setSucceeded(result);
-  }
-
-  ~InitAction(){
   }
   
   protected:

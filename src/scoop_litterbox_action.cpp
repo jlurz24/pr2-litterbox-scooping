@@ -195,20 +195,12 @@ public:
 
     goal.target.point = point;
     goal.target.header.frame_id = "map";
-    goal.pointing_frame = "wide_stereo_optical_frame";
-    goal.pointing_axis.x = 1;
-    goal.pointing_axis.y = 0;
-    goal.pointing_axis.z = 0;
 
     // Take at least 0.5 seconds to get there
     goal.min_duration = ros::Duration(0.5);
 
-    // Go no faster than 1 rad/s
-    goal.max_velocity = 1.0;
-
     sendGoal(pointHeadClient, goal, nh);
     ROS_INFO("Completed pointing head");
-
   }
 
   /**
