@@ -2,17 +2,20 @@
   <include file="$(find pr2_machine)/$(env ROBOT).machine" />
   
   <!-- Navigation stack -->
+  <!-- Turn on for non-gslam mapping -->
   <include file="$(find pr2_navigation_global)/amcl_node.xml" />
+  <!-- <include file="$(find pr2_navigation_slam)/slam_gmapping.xml" /> -->
   <include file="$(find pr2_navigation_teleop)/teleop.xml" />
   <include file="$(find pr2_navigation_perception)/lasers_and_filters.xml" />
   <include file="$(find pr2_navigation_perception)/ground_plane.xml" />
+  
+  <!-- Octomap -->
+  <!-- <include file="$(find litterbox)/launch/mapping_server.launch"/> -->
+
   <include file="$(find pr2_navigation_global)/move_base.xml" />
   
+  <!-- Turn on for non-gslam mapping -->
   <node name="map_server" pkg="map_server" type="map_server" args="$(find gazebo_worlds)/Media/materials/textures/map_blank.png 0.1" respawn="true" />
-
-   <!-- Turn off octomap
-   <include file="$(find litterbox)/launch/mapping_server.launch"/>
-   -->
 
   <!-- Arm navigation -->
   <include file="$(find pr2_3dnav)/right_arm_navigation.launch" />
