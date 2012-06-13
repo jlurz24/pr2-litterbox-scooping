@@ -39,8 +39,8 @@ class OctomapUpdater {
  public:
     OctomapUpdater() : mPNH("~"){
 
-      mPNH.param("max_range", mMaxRange, 2.5);
-      mPNH.param<std::string>("fixed_frame", mFixedFrame, "/base_link");
+      mPNH.param("max_sensor_range", mMaxRange, 3.0);
+      mPNH.param<std::string>("fixed_id", mFixedFrame, "/odom_combined");
       mPNH.param("degrade_tolerance", mDegradeTolerance, 1.0);
 
       // Defaults are from octoMap.
@@ -50,13 +50,17 @@ class OctomapUpdater {
       double threshMin = 0.12;
       double threshMax = 0.95;
       double resolution = 0.1;
-      
+      bool useStereo = false;
+      bool useLaser = true;
+
       mPNH.param("sensor_model_occ_thresh", occupancyThresh, occupancyThresh);
       mPNH.param("sensor_model_hit", probHit, probHit);
       mPNH.param("sensor_model_miss", probMiss, probMiss);
       mPNH.param("sensor_model_thresh_min", threshMin, threshMin);
       mPNH.param("sensor_model_thresh_max", threshMax, threshMax);
       mPNH.param("resolution", resolution, resolution);
+      mPNH.param("use_stereo", useStereo, useStereo);
+      mPNH.param("use_laser", useLaser, useLaser);
 
       mOctoMap.reset(new OctomapType(resolution));
       mOctoMap->octree.setOccupancyThres(occupancyThresh);
@@ -66,15 +70,17 @@ class OctomapUpdater {
       mOctoMap->octree.setClampingThresMax(threshMax); 
 
       // List for the depth messages
-      std::string imageSensorName;
-      mPNH.param<std::string>("sensor_name", imageSensorName, "/narrow_stereo_textured/points2_filtered_attached");
-      ros::topic::waitForMessage<sensor_msgs::PointCloud2>(imageSensorName, mNH);
-      mDepthPointsSub = mNH.subscribe(imageSensorName, 1, &OctomapUpdater::depthCloudCallback, this);
-      
-      std::string laserSensorName;
-      mPNH.param<std::string>("sensor_name", laserSensorName, "/tilt_scan_cloud_filtered2");
-      ros::topic::waitForMessage<sensor_msgs::PointCloud2>(laserSensorName, mNH);
-      mLaserPointsSub = mNH.subscribe(laserSensorName, 1, &OctomapUpdater::depthCloudCallback, this);
+      if(useStereo){
+        std::string imageSensorName = "stereo_cloud_in";
+        ros::topic::waitForMessage<sensor_msgs::PointCloud2>(imageSensorName, mNH);
+        mDepthPointsSub = mNH.subscribe(imageSensorName, 1, &OctomapUpdater::depthCloudCallback, this);
+      }
+
+      if(useLaser){
+        std::string laserSensorName = "laser_cloud_in";
+        ros::topic::waitForMessage<sensor_msgs::PointCloud2>(laserSensorName, mNH);
+        mLaserPointsSub = mNH.subscribe(laserSensorName, 1, &OctomapUpdater::depthCloudCallback, this);
+      }
 
       // Publishers for visualization.
       mOccupiedPub = mNH.advertise<visualization_msgs::Marker>("occupied_cells", 1, false);
@@ -83,7 +89,7 @@ class OctomapUpdater {
 
       // Setup a mDisplayTimer to display updates.
       double publishInterval;
-      mPNH.param<double>("publish_interval", publishInterval, 1.0);
+      mPNH.param<double>("publish_interval", publishInterval, 0.2);
       mDisplayTimer = mNH.createTimer(ros::Duration(publishInterval), &OctomapUpdater::publishUpdates, this);
       
       ROS_INFO("Initialization complete of OctomapUpdater");
@@ -144,7 +150,7 @@ class OctomapUpdater {
       
       // Publish updates.
       std::vector<geometry_msgs::Point> occPoints;
-      if(mOccupiedPub.getNumSubscribers() > 0 || mCMapPub.getNumSubscribers() > 0 || mPointCloudPub.getNumSubscribers() > 0){
+      if(mOccupiedPub.getNumSubscribers() > 0 || mCMapPub.getNumSubscribers() > 0){
         occPoints = getOccupiedPoints();
       }
 
@@ -155,7 +161,7 @@ class OctomapUpdater {
         publishCollisionMap(occPoints, header);
       }
       if(mPointCloudPub.getNumSubscribers() > 0){
-        publishPointCloud(occPoints, header);
+        publishPointCloud(header);
       }
       ROS_INFO("Publishing an update took %f seconds", (ros::WallTime::now() - publishStartTime).toSec());
     }
@@ -163,22 +169,12 @@ class OctomapUpdater {
     /*
      * Publish the output as a point cloud.
      */
-    void publishPointCloud(const std::vector<geometry_msgs::Point>& aPoints, const std_msgs::Header& aHeader) const {
-     pcl::PointCloud<pcl::PointXYZ> cloud;
-     cloud.points.reserve(aPoints.size());
-
-     for(std::vector<geometry_msgs::Point>::const_iterator it = aPoints.begin(); it != aPoints.end(); ++it){
-       pcl::PointXYZ point;
-       point.x = it->x;
-       point.y = it->y;
-       point.z = it->z;
-       cloud.points.push_back(point);
-    }
-
-    sensor_msgs::PointCloud2 cloud2;
-    pcl::toROSMsg(cloud, cloud2);
-    cloud2.header = aHeader;
-    mPointCloudPub.publish(cloud2);
+  void publishPointCloud(const std_msgs::Header& aHeader) const {
+      pcl::PointCloud<pcl::PointXYZI> cloud = getIntensityPoints();
+      sensor_msgs::PointCloud2 cloud2;
+      pcl::toROSMsg(cloud, cloud2);
+      cloud2.header = aHeader;
+      mPointCloudPub.publish(cloud2);
   }
 
   /*
@@ -245,6 +241,24 @@ class OctomapUpdater {
       }
       return points;
     }
+
+    pcl::PointCloud<pcl::PointXYZI> getIntensityPoints() const {
+      pcl::PointCloud<pcl::PointXYZI> points;
+      for (OctomapType::OcTreeType::iterator it = mOctoMap->octree.begin(), end = mOctoMap->octree.end(); it != end; ++it){
+          // TODO: Need to generate multiple points for larger
+          //       ranges. Also need to limit updates to some range
+          //       away from the robot.
+          // TODO: Could compress Z.
+          pcl::PointXYZI p;
+          p.x = it.getX();
+          p.y = it.getY();
+          p.z = it.getZ();
+          p.intensity = mOctoMap->octree.isNodeOccupied(*it) ? 0.0 : 1.0;
+          points.push_back(p);
+      }
+      return points;
+    }
+
 
     /**
      * Get the sensor origin.

@@ -59,25 +59,35 @@ class ObjectDetector {
 
     void stopListening(){
       ROS_INFO("Stopping listeners for object detector");
-      sync.release();
-      blobsSub.release(); 
-      depthPointsSub.release();
+      blobsSub->unsubscribe(); 
+      depthPointsSub->unsubscribe();
     }
 
     void startListening(){
       ROS_INFO("Starting to listen for blob messages");
 
-      // Listen for message from cm vision when it sees an object.
-      blobsSub.reset(new message_filters::Subscriber<cmvision::Blobs>(nh, "/blobs", 1));
+      if(blobsSub.get() == NULL){
+        // Listen for message from cm vision when it sees an object.
+        blobsSub.reset(new message_filters::Subscriber<cmvision::Blobs>(nh, "/blobs", 1));
+      }
+      else {
+        blobsSub->subscribe();
+      }
       
       // List for the depth messages
-      depthPointsSub.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, "/wide_stereo/left/points", 3));
+      if(depthPointsSub.get() == NULL){
+        depthPointsSub.reset(new message_filters::Subscriber<sensor_msgs::PointCloud2>(nh, "/wide_stereo/left/points", 3));
+      }
+      else {
+        depthPointsSub->subscribe();
+      }
+  
+      if(sync.get() == NULL){
+        // Sync the two messages
+        sync.reset(new message_filters::TimeSynchronizer<cmvision::Blobs, sensor_msgs::PointCloud2>(*blobsSub, *depthPointsSub, 3));
       
-      // Sync the two messages
-      sync.reset(new message_filters::TimeSynchronizer<cmvision::Blobs, sensor_msgs::PointCloud2>(*blobsSub, *depthPointsSub, 3));
-      
-      sync->registerCallback(boost::bind(&ObjectDetector::finalBlobCallback, this, _1, _2));
-     
+        sync->registerCallback(boost::bind(&ObjectDetector::finalBlobCallback, this, _1, _2));
+      }
       ROS_INFO("Registration for blob events complete.");
     }
 

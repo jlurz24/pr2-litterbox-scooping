@@ -37,6 +37,6 @@ rosbuild_add_executable(determine_lb_dimensions_server src/determine_lb_dimensio
 rosbuild_add_executable(display_rectangles src/display_rectangles.cpp src/find_rectangles.cpp)
 rosbuild_add_executable(move_left_arm_away src/move_left_arm_away.cpp)
 rosbuild_add_executable(move_right_arm_away src/move_right_arm_away.cpp)
-rosbuild_add_executable(octomap_updater src/octomap_updater.cpp)
+rosbuild_add_executable(octomap_server src/octomap_server.cpp)
 rosbuild_add_executable(laserscan_to_pointcloud src/laserscan_to_pointcloud.cpp)
 target_link_libraries(insert_scooper tinyxml)
