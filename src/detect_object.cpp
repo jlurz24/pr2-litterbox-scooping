@@ -130,7 +130,7 @@ class ObjectDetector {
       tf.transformVector("/map", normalInImageFrame, normalStamped);
       
       double yaw = atan(normalStamped.vector.x / -normalStamped.vector.y);
-      yaw -= boost::math::constants::pi<double>() / 2.0;
+      yaw += boost::math::constants::pi<double>() / 2.0;
 
       geometry_msgs::Quaternion q = tf::createQuaternionMsgFromRollPitchYaw(0, 0, yaw);
 

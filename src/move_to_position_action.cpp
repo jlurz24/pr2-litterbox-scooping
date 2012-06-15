@@ -59,7 +59,7 @@ public:
     }
 
     // Point head at the target.
-    pointHeadAt(goal->target.pose.position);
+    pointHeadAt(goal->target.pose.position, goal->target.header.frame_id);
 
     if(as.isPreemptRequested() || !ros::ok()){
       as.setPreempted();
@@ -77,14 +77,11 @@ public:
     ROS_INFO("Target position reached");
 
     // Finish by pointing the robot's head back at the target.
-    pointHeadAt(goal->target.pose.position);
+    pointHeadAt(goal->target.pose.position, goal->target.header.frame_id);
 
     as.setSucceeded(result);
   }
 
-  ~MoveToPositionAction(){
-  }
-  
   protected:
     ros::NodeHandle nh;
     
@@ -109,18 +106,14 @@ public:
 
   /**
    * Point the head at a given point
-   * Assumes position in the map frame
    * TODO: Refactor and share this code.
    */
-  void pointHeadAt(const geometry_msgs::Point point){
+  void pointHeadAt(const geometry_msgs::Point point, const std::string& frameId){
     ROS_INFO("Pointing head");
     pr2_controllers_msgs::PointHeadGoal goal;
 
     goal.target.point = point;
-    goal.target.header.frame_id = "map";
-
-    // Take at least 0.5 seconds to get there
-    goal.min_duration = ros::Duration(0.5);
+    goal.target.header.frame_id = frameId;
 
     sendGoal(pointHeadClient, goal, nh);
     ROS_INFO("Completed pointing head");

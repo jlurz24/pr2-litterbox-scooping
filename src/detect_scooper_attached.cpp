@@ -44,18 +44,18 @@ class DetectScooperAttached {
     }
 
     void startListening(){
-      if(jointSub.get() == null){
+      if(jointSub.get() == NULL){
         jointSub.reset(new message_filters::Subscriber<sensor_msgs::JointState>(nh, "joint_states", 1));
 
         jointSub->registerCallback(boost::bind(&DetectScooperAttached::jointDataCallback, this, _1));
       }
       else {
-        jointSub.subscribe();
+        jointSub->subscribe();
       }
     }
     
     void stopListening(){
-      jointSub.unsubscribe();
+      jointSub->unsubscribe();
     }
 
     void jointDataCallback(const sensor_msgs::JointStateConstPtr& jointsMsg){

@@ -8,6 +8,7 @@ from smach_ros import MonitorState, SimpleActionState
 from litterbox.msg import ExploreAction, MoveToPositionAction, ScoopLitterboxAction, DumpPoopAction, InitAction, InsertScooperAction
 from litterbox.msg import MoveToPositionGoal, ScoopLitterboxGoal, ExploreGoal, DumpPoopGoal, InitGoal, InsertScooperGoal
 from litterbox.msg import ScooperAttached
+import tf
 
 # main
 def main():
@@ -20,22 +21,28 @@ def main():
     sm.userdata.litterbox_pose = None
     sm.userdata.trash_pose = None
 
+    tl = tf.TransformListener()
     sis = smach_ros.IntrospectionServer('litterbox', sm, '/LITTERBOX_ROOT')
     sis.start()
-
+    
     # Open the container
     with sm:
 
         def move_to_litterbox_cb(userdata, goal):
           rospy.loginfo("Inside move to lb callback")
           goal = MoveToPositionGoal()
-          goal.target = sm.userdata.litterbox_pose
+          sm.userdata.litterbox_pose.header.stamp = rospy.Time() 
+          goal.target = tl.transformPose("base_link", sm.userdata.litterbox_pose)
+
+          # Remain 0.1 meters from the litterbox
+          goal.target.pose.position.x -= 0.25
           return goal
 
         def move_to_trash_cb(userdata, goal):
           rospy.loginfo("Inside move to trash callback")
           goal = MoveToPositionGoal()
-          goal.target = userdata.trash_pose
+          userdata.trash_pose.header.stamp = rospy.Time()
+          goal.target = tl.transformPose("base_link", userdata.trash_pose)
           return goal
 
 
@@ -55,7 +62,8 @@ def main():
         def scoop_litterbox_cb(userdata, goal):
           rospy.loginfo("Inside scoop litterbox callback")
           goal = ScoopLitterboxGoal()
-          goal.target = userdata.litterbox_pose
+          userdata.litterbox_pose.header.stamp = rospy.Time()
+          goal.target = tl.transformPose("base_link", userdata.litterbox_pose)
           return goal
 
         def dump_poop_cb(userdata, goal):
