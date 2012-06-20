@@ -22,6 +22,8 @@ using namespace std;
 
 static const double PI = boost::math::constants::pi<double>();
 
+static const double SCOOP_LENGTH = 0.35;
+
 /**
  * Cleans a litterbox
  */
@@ -174,11 +176,6 @@ private:
 
     // Move the right arm to the back of the litterbox.
     ROS_INFO("Litterbox base position is %f %f %f", point.x, point.y, point.z);
-    geometry_msgs::Point behindPoint = point;
-    behindPoint.z = 0.5;
-    ROS_INFO("Moving arm to the back of the litterbox");
-    moveRightArm(behindPoint, verticalOrientation(), "base_link");
-    ROS_INFO("Arm moved to the back of the litterbox");
 
     // Distance from each side to avoid.
     // TODO: This should be based on half the size of the scoop.
@@ -196,21 +193,21 @@ private:
     position.y = horizontal;
     position.z = 0;
     ROS_INFO("Adjusting horizontal by random %f", horizontal);
-    moveRightArmRelative(position, verticalOrientation());
+    moveRightArmRelative(position, identityOrientation()); // vertical
     
     // Now lower the scoop.
     position.x = 0;
     position.y = 0;
-    position.z = -0.35;
+    position.z = -0.25;
     ROS_INFO("Lowering scoop");
-    moveRightArmRelative(position, verticalDownOrientation());
+    moveRightArmRelative(position, identityOrientation()); // vertical down
     
     // Now scoop
     ROS_INFO("Scooping");
     position.x = dim.depth - boxWidth;
     position.y = 0;
     position.z = 0;
-    moveRightArmRelative(position, verticalDownOrientation());
+    moveRightArmRelative(position, identityOrientation()); // vertical down
 
     ROS_INFO("Scoop complete");
     return true;
@@ -225,10 +222,11 @@ private:
 
     // Center the arm over the litterbox 0.5 meters above the ground. Point should be the center point of the front
     // edge of the litterbox halfway back in the litterbox.
+    ROS_INFO("Litterbox back in base frame x %f y %f z %f", point.x, point.y, point.z);
     geometry_msgs::Point overLitterboxPoint = point;
-    overLitterboxPoint.z = 0.5;
-    overLitterboxPoint.x += (dim.depth / 2.0);
-    moveRightArm(overLitterboxPoint, verticalOrientation(), "base_link");
+    overLitterboxPoint.z = 0.25;
+    overLitterboxPoint.x; // TODO: This is rough. Scoop size should get us over the lb.
+    moveRightArm(overLitterboxPoint, identityOrientation(), "base_link");
     ROS_INFO("Move arm complete");
   }
  
@@ -287,7 +285,7 @@ private:
   }
 
   geometry_msgs::Quaternion verticalDownOrientation() const {
-    return tf::createQuaternionMsgFromRollPitchYaw(PI / 2.0, - PI / 8.0, 0);
+    return tf::createQuaternionMsgFromRollPitchYaw(PI / 2.0, PI / 6.0, 0);
   }
 };
 

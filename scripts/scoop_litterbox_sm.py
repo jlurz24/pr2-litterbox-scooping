@@ -3,14 +3,26 @@ import roslib, time
 roslib.load_manifest('litterbox')
 import rospy, smach, smach_ros, traceback, litterbox.msg
 
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Quaternion
 from smach_ros import MonitorState, SimpleActionState
 from litterbox.msg import ExploreAction, MoveToPositionAction, ScoopLitterboxAction, DumpPoopAction, InitAction, InsertScooperAction
 from litterbox.msg import MoveToPositionGoal, ScoopLitterboxGoal, ExploreGoal, DumpPoopGoal, InitGoal, InsertScooperGoal
 from litterbox.msg import ScooperAttached
 import tf
+import math
 
 # main
+def msg_to_quaternion(msg):
+  return [msg.x, msg.y, msg.z, msg.w]
+
+def quaternion_to_msg(q):
+  msg = Quaternion()
+  msg.x = q[0]
+  msg.y = q[1]
+  msg.z = q[2]
+  msg.w = q[3]
+  return msg
+
 def main():
     rospy.loginfo("Starting the state machine");
 
@@ -33,9 +45,18 @@ def main():
           goal = MoveToPositionGoal()
           sm.userdata.litterbox_pose.header.stamp = rospy.Time() 
           goal.target = tl.transformPose("base_link", sm.userdata.litterbox_pose)
+          
+          # Ensure the sign of the orientation is correct.
+          roll, pitch, yaw = tf.transformations.euler_from_quaternion(msg_to_quaternion(goal.target.pose.orientation))
+          rospy.loginfo("Yaw: %f", yaw)
+          if yaw < -math.pi / 2:
+             yaw += math.pi
+          if yaw > math.pi / 2:
+             yaw -= math.pi
+          
+          goal.target.pose.orientation = quaternion_to_msg(tf.transformations.quaternion_from_euler(roll, pitch, yaw))
 
-          # Remain 0.1 meters from the litterbox
-          goal.target.pose.position.x -= 0.25
+          goal.target.pose.position.x -= 0.5
           return goal
 
         def move_to_trash_cb(userdata, goal):
