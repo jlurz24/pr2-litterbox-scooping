@@ -5,13 +5,21 @@ import rospy, traceback, actionlib, time
 
 from arm_navigation_msgs.msg import MoveArmAction, MoveArmGoal
 from arm_navigation_msgs.msg import PositionConstraint, OrientationConstraint
-from optparse import OptionParser
+import argparse
 from actionlib import SimpleActionClient
 from geometry_msgs.msg import PoseStamped, Quaternion
 
 import tf
 
-def test_move_arm():
+def quaternion_to_msg(q):
+  msg = Quaternion()
+  msg.x = q[0]
+  msg.y = q[1]
+  msg.z = q[2]
+  msg.w = q[3]
+  return msg
+
+def test_move_arm(position, orientation):
   rospy.loginfo("Moving the arm");
 
   client = actionlib.SimpleActionClient("move_right_arm", MoveArmAction)
@@ -28,16 +36,13 @@ def test_move_arm():
   position_constraint.header.frame_id = "/torso_lift_link"
   position_constraint.link_name = "r_wrist_roll_link"
 
-  position_constraint.position.x = 0.45
-  position_constraint.position.y = -0.188
-  position_constraint.position.z = 0.0
+  position_constraint.position.x = position[0]
+  position_constraint.position.y = position[1]
+  position_constraint.position.z = position[2]
   position_constraint.constraint_region_shape.type = position_constraint.constraint_region_shape.BOX
   tolerance = 0.04
   position_constraint.constraint_region_shape.dimensions = [tolerance, tolerance, tolerance]
-  position_constraint.constraint_region_orientation.x = 0.
-  position_constraint.constraint_region_orientation.y = 0.
-  position_constraint.constraint_region_orientation.z = 0.
-  position_constraint.constraint_region_orientation.w = 1.        
+  position_constraint.constraint_region_orientation = quaternion_to_msg(tf.transformations.quaternion_from_euler(orientation[0], orientation[1], orientation[2]))
   position_constraint.weight = 1.0
   
   orientation_constraint = OrientationConstraint()
@@ -68,10 +73,15 @@ def test_move_arm():
 if __name__ == '__main__':
   try:
     rospy.init_node('test_move_arm')
-    parser = OptionParser()
-    (options, args) = parser.parse_args()
+    parser = argparse.ArgumentParser(description='Reads parameters for moving arm')
+    parser.add_argument('position', metavar='N', type=float, nargs=3, help='x y z')
+    parser.add_argument('rpy', metavar='N', type=float, nargs=3, help='r p y')
 
-    test_move_arm()
+
+    args = parser.parse_args()
+    position = (args.position[0], args.position[1], args.position[2])
+    orientation = (args.rpy[0], args.rpy[1], args.rpy[2])
+    test_move_arm(position, orientation)
   except rospy.ROSInterruptException:
     rospy.loginfo("Interupted")
 

@@ -226,7 +226,7 @@ private:
     geometry_msgs::Point overLitterboxPoint = point;
     overLitterboxPoint.z = 0.25;
     overLitterboxPoint.x; // TODO: This is rough. Scoop size should get us over the lb.
-    moveRightArm(overLitterboxPoint, identityOrientation(), "base_link");
+    moveRightArm(overLitterboxPoint, identityOrientation(), "/torso_lift_link");
     ROS_INFO("Move arm complete");
   }
  

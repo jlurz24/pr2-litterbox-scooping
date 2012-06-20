@@ -44,7 +44,7 @@ def main():
           rospy.loginfo("Inside move to lb callback")
           goal = MoveToPositionGoal()
           sm.userdata.litterbox_pose.header.stamp = rospy.Time() 
-          goal.target = tl.transformPose("base_link", sm.userdata.litterbox_pose)
+          goal.target = tl.transformPose("/torso_lift_link", sm.userdata.litterbox_pose)
           
           # Ensure the sign of the orientation is correct.
           roll, pitch, yaw = tf.transformations.euler_from_quaternion(msg_to_quaternion(goal.target.pose.orientation))
@@ -63,7 +63,7 @@ def main():
           rospy.loginfo("Inside move to trash callback")
           goal = MoveToPositionGoal()
           userdata.trash_pose.header.stamp = rospy.Time()
-          goal.target = tl.transformPose("base_link", userdata.trash_pose)
+          goal.target = tl.transformPose("/torso_lift_link", userdata.trash_pose)
           return goal
 
 
