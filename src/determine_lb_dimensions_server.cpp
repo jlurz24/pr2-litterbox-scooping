@@ -14,6 +14,11 @@ bool compareMaxAngle(const RectangleInfo& l, const RectangleInfo& r){
   return r.maxAngle > l.maxAngle;
 }
 
+bool isTooLargeRectangle(const RectangleInfo& l) {
+  // Likely the bogus outer perimeter rectangle.
+  return l.area > 300000;
+}
+
 class DetermineLBDimensionsServer {
   public:
     DetermineLBDimensionsServer(): privateNh("~"){
@@ -25,18 +30,14 @@ class DetermineLBDimensionsServer {
                          litterbox::DetermineLBDimensions::Response& res){
    
    ROS_INFO("Waiting for image message");
-   sensor_msgs::ImageConstPtr image = ros::topic::waitForMessage<sensor_msgs::Image>("/narrow_stereo/left/image_rect_color", nh);
+   sensor_msgs::ImageConstPtr image = ros::topic::waitForMessage<sensor_msgs::Image>("/narrow_stereo/left/image_mono", nh);
   
    ROS_INFO("Received an image with width %u height %u", image->width, image->height);
 
    // Wait for a 3d points message
-   bool haveValid3d = false;
    sensor_msgs::PointCloud2ConstPtr imagePoints;
-   while(!haveValid3d){
-     ROS_INFO("Waiting for 3d points message");
-     imagePoints = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/narrow_stereo/left/points");
-     haveValid3d = true;
-   }
+   ROS_INFO("Waiting for 3d points message");
+   imagePoints = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/narrow_stereo/left/points");
 
    // Begin processing the image.
    cv_bridge::CvImageConstPtr cvImg = cv_bridge::toCvShare(image);
@@ -44,6 +45,9 @@ class DetermineLBDimensionsServer {
    ROS_INFO("Finding rectangles");
    std::vector<RectangleInfo> rects = findRectangles(cvImg->image);
    
+   // Remove bogus outer rectangle.
+   rects.erase(std::remove_if(rects.begin(), rects.end(), isTooLargeRectangle));
+
    if(rects.size() == 0){
      // TODO: Set error message here
      ROS_INFO("Could not locate any rectangles that might be the litterbox");
@@ -60,37 +64,37 @@ class DetermineLBDimensionsServer {
    }
 
    // Find the points in the 3d point plane.
-   pcl::PointCloud<pcl::PointXYZ>::Ptr depthCloud(new pcl::PointCloud<pcl::PointXYZ>);
-   pcl::fromROSMsg(*imagePoints, *depthCloud);
+   pcl::PointCloud<pcl::PointXYZ> depthCloud;
+   pcl::fromROSMsg(*imagePoints, depthCloud);
 
    // TODO: Apply downsampling here. Probably a voxel grid.
    std::vector<pcl::PointXYZ> contour3d;
    contour3d.resize(4);
    for(unsigned int i = 0; i < contour3d.size(); ++i){
-     contour3d[i] = depthCloud->points.at(contour[i].y * image->width + contour[i].x);
+     contour3d[i] = depthCloud.points.at(contour[i].y * image->width + contour[i].x);
    }
 
    double d1 = calc3DDistance(contour3d[0], contour3d[1]);
    double d2 = calc3DDistance(contour3d[1], contour3d[2]);
-   ROS_INFO("d1 %f d2 %f", d1, d2);
 
    res.width = std::min(d1, d2);
    res.depth = std::max(d1, d2);
 
    // Convert to map coordinates.
    // Now convert from image from camera frame to world
-   tf.waitForTransform("narrow_stereo_optical_frame", "map", ros::Time(0), ros::Duration(10.0));
+   ros::Time now = ros::Time::now();
+   tf.waitForTransform("/base_footprint", image->header.frame_id, now, ros::Duration(10.0));
    
    for(unsigned int i = 0; i < 4; ++i){   
      geometry_msgs::PointStamped resultPoint;
-     resultPoint.header.frame_id = "/map";
+     resultPoint.header.frame_id = "/base_footprint";
      geometry_msgs::PointStamped imagePoint;
-     imagePoint.header.frame_id = "/narrow_stereo_optical_frame";
+     imagePoint.header.frame_id = image->header.frame_id;
+     imagePoint.header.stamp = now;
      imagePoint.point.x = contour3d[i].x;
      imagePoint.point.y = contour3d[i].y;
      imagePoint.point.z = contour3d[i].z;
-     tf.transformPoint("/map", imagePoint, resultPoint);
-     ROS_INFO("Point in map frame: %f, %f, %f", resultPoint.point.x, resultPoint.point.y, resultPoint.point.z);
+     tf.transformPoint("/base_footprint", imagePoint, resultPoint);
      res.contour.push_back(resultPoint);
    }
 

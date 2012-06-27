@@ -5,5 +5,5 @@
   <include file="$(find litterbox)/launch/arm_navigation.launch" />
   <include file="$(find litterbox)/launch/action_nodes.launch" />
   <include file="$(find litterbox)/launch/sensor_nodes.launch" />
-  <node pkg="litterbox" type="scoop_litterbox_sm.py" name="scoop_litterbox_sm" output="screen"/>
+ <node pkg="litterbox" type="scoop_litterbox_sm.py" name="scoop_litterbox_sm" output="screen"/>
 </launch>

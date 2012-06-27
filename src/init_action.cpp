@@ -22,9 +22,9 @@ public:
   InitAction(const string& name): as(nh, name, boost::bind(&InitAction::init, this, _1), false), actionName(name){
     
     ROS_INFO("Starting init of the init action");
-    collisionPublisher = nh.advertise<arm_navigation_msgs::AttachedCollisionObject>("attached_collision_object", 10);    
+    collisionPublisher = nh.advertise<arm_navigation_msgs::AttachedCollisionObject>("attached_collision_object", 1);    
     as.start();
-    initialPosePublisher = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("initialpose", 10);
+    initialPosePublisher = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("initialpose", 1);
   }
   
   /**
@@ -53,12 +53,12 @@ public:
     arm_navigation_msgs::Shape object;
     object.type = arm_navigation_msgs::Shape::BOX;
     object.dimensions.resize(3);
-    object.dimensions[0] = 0.08;
-    object.dimensions[1] = 0.08;
-    object.dimensions[2] = 0.65;
+    object.dimensions[0] = 0.04;
+    object.dimensions[1] = 0.04;
+    object.dimensions[2] = 0.35;
 
     geometry_msgs::Pose pose;
-    pose.position.x = 0.25;
+    pose.position.x = 0.15;
     pose.position.y = 0.0;
     pose.position.z = 0.0;
     pose.orientation = tf::createQuaternionMsgFromRollPitchYaw(0, boost::math::constants::pi<double>() / 2, 0);

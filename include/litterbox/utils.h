@@ -27,12 +27,12 @@
    * @return Whether the goal was executed successfully.
    */
   template<class T, class U>
-  static bool sendGoal(const T& client, const U& goal, ros::NodeHandle& nh){
+  static bool sendGoal(const T& client, const U& goal, ros::NodeHandle& nh, double timeout = 20.0){
     bool success = false;
     if (nh.ok()){
       ROS_INFO("Sending goal");
       client->sendGoal(goal);
-      if(!client->waitForResult(ros::Duration(20.0))){
+      if(!client->waitForResult(ros::Duration(timeout))){
         client->cancelGoal();
         ROS_INFO("Timed out achieving goal");
       }

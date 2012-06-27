@@ -72,7 +72,7 @@ public:
     move_base_msgs::MoveBaseGoal moveGoal;
     moveGoal.target_pose = goal->target;
     moveGoal.target_pose.header.stamp = ros::Time::now();
-    sendGoal(baseClient, moveGoal, nh);
+    sendGoal(baseClient, moveGoal, nh, 60);
 
     ROS_INFO("Target position reached");
 

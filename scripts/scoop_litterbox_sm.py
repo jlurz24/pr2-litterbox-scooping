@@ -23,6 +23,17 @@ def quaternion_to_msg(q):
   msg.w = q[3]
   return msg
 
+def correct_direction(orientation):
+  # Ensure the sign of the orientation is correct.
+  roll, pitch, yaw = tf.transformations.euler_from_quaternion(msg_to_quaternion(orientation))
+  rospy.loginfo("Yaw: %f", yaw)
+  if yaw < -math.pi / 2:
+    yaw += math.pi
+  if yaw > math.pi / 2:
+    yaw -= math.pi
+
+  return quaternion_to_msg(tf.transformations.quaternion_from_euler(roll, pitch, yaw))
+
 def main():
     rospy.loginfo("Starting the state machine");
 
@@ -45,25 +56,34 @@ def main():
           goal = MoveToPositionGoal()
           sm.userdata.litterbox_pose.header.stamp = rospy.Time() 
           goal.target = tl.transformPose("/torso_lift_link", sm.userdata.litterbox_pose)
-          
-          # Ensure the sign of the orientation is correct.
-          roll, pitch, yaw = tf.transformations.euler_from_quaternion(msg_to_quaternion(goal.target.pose.orientation))
-          rospy.loginfo("Yaw: %f", yaw)
-          if yaw < -math.pi / 2:
-             yaw += math.pi
-          if yaw > math.pi / 2:
-             yaw -= math.pi
-          
-          goal.target.pose.orientation = quaternion_to_msg(tf.transformations.quaternion_from_euler(roll, pitch, yaw))
+          goal.target.pose.orientation = correct_direction(goal.target.pose.orientation)
 
-          goal.target.pose.position.x -= 0.5
+          # Move to the left of the litterbox
+          goal.target.pose.position.y += 0.65
+          goal.target.pose.position.x -= 0.2
+
           return goal
-
+       
+        def move_away_cb(userdata, goal):
+          rospy.loginfo("Inside move away callback")
+          goal = MoveToPositionGoal()
+          goal.target.pose.position.y = 0.5
+          goal.target.pose.position.x = -0.5
+          goal.target.pose.orientation.x = 0
+          goal.target.pose.orientation.y = 0
+          goal.target.pose.orientation.z = 0
+          goal.target.pose.orientation.w = 1
+          goal.target.header.frame_id = "/torso_lift_link"
+          goal.target.header.stamp = rospy.Time()
+          return goal
+       
         def move_to_trash_cb(userdata, goal):
           rospy.loginfo("Inside move to trash callback")
+          rospy.loginfo("Trash x %f y%f", userdata.trash_pose.pose.position.x, userdata.trash_pose.pose.position.y)
           goal = MoveToPositionGoal()
           userdata.trash_pose.header.stamp = rospy.Time()
           goal.target = tl.transformPose("/torso_lift_link", userdata.trash_pose)
+          goal.target.pose.orientation = correct_direction(goal.target.pose.orientation)
           return goal
 
 
@@ -73,7 +93,7 @@ def main():
           return False
 
         def detect_trash_cb(userdata, msg):
-          rospy.loginfo("Inside trash detection callback")
+          rospy.loginfo("Inside trash detection callback x %f y %f", msg.pose.position.x, msg.pose.position.y)
           sm.userdata.trash_pose = msg
           return False
 
@@ -183,6 +203,14 @@ def main():
                                transitions={'reached':'SCOOP_LITTERBOX',
                                             'notreached':'failure',
                                             'scooper_dropped':'INSERT_SCOOP'})
+        smach.StateMachine.add('MOVE_AWAY', 
+                               SimpleActionState('move_to_position',
+                               MoveToPositionAction,
+                               goal_cb=move_away_cb,
+                               input_keys=[]),
+                               transitions={'succeeded': 'CON_DETECT_TRASH',
+                                            'preempted': 'CON_DETECT_TRASH',
+                                            'aborted': 'CON_DETECT_TRASH'})
 
         smach.StateMachine.add('INSERT_SCOOP',
                                SimpleActionState('insert_scooper',
@@ -198,7 +226,7 @@ def main():
                                ScoopLitterboxAction,
                                goal_cb=scoop_litterbox_cb,
                                input_keys=['litterbox_pose']),
-                               transitions={'succeeded':'CON_DETECT_TRASH',
+                               transitions={'succeeded':'MOVE_AWAY',
                                             'preempted':'failure',
                                             'aborted': 'failure'})
 
@@ -256,6 +284,6 @@ if __name__ == '__main__':
   try:
     main()
   except rospy.ROSInterruptException:
+    rospy.loginfo("Scooping movement interupted")
     sis.stop()
-    pass
 

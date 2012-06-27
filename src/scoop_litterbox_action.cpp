@@ -22,7 +22,13 @@ using namespace std;
 
 static const double PI = boost::math::constants::pi<double>();
 
-static const double SCOOP_LENGTH = 0.35;
+static const double SCOOP_LENGTH = 0.3; // Adjusted because it is partially held
+
+static const double TORSO_TO_FRONT = 0.075; 
+
+static const double SCOOP_WIDTH = 0.08;
+
+static const double LB_SIDE_WIDTH = 0.02;
 
 /**
  * Cleans a litterbox
@@ -81,6 +87,27 @@ private:
     as.setPreempted();
   }
 
+  arm_navigation_msgs::CollisionObject makeCollisionObject(const geometry_msgs::Pose& pose, const std::string& frameId, const Dimensions& dimensions){
+    arm_navigation_msgs::CollisionObject obj;
+    obj.header.stamp = ros::Time::now();
+    obj.header.frame_id = frameId;
+    obj.id = "litterbox";
+    obj.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
+   
+     
+    arm_navigation_msgs::Shape lbShape;
+    lbShape.type = arm_navigation_msgs::Shape::BOX;
+    lbShape.dimensions.resize(3);
+    lbShape.dimensions[0] = dimensions.width;
+    lbShape.dimensions[1] = dimensions.depth;
+    lbShape.dimensions[2] = dimensions.height;
+    obj.shapes.push_back(lbShape);
+    obj.poses.push_back(pose);
+
+    obj.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
+    
+    return obj;
+  }
   /**
    * Main function to scoop the litterbox.
    */
@@ -97,8 +124,12 @@ private:
       as.setPreempted();
       return;
     }
-    
-    pointHeadAt(goal->target.pose.position, goal->target.header.frame_id);
+   
+    // The robot found the front of the litterbox. Guess
+    // at where the middle is.
+    geometry_msgs::Point litterboxGuess = goal->target.pose.position;
+    litterboxGuess.x += 0.25;
+    pointHeadAt(litterboxGuess, goal->target.header.frame_id);
     
     if(as.isPreemptRequested() || !ros::ok()){
       as.setPreempted();
@@ -106,21 +137,25 @@ private:
     }
     
     const Dimensions dim = determineLBDimensions();
-    moveArmOverLitterbox(goal->target.pose.position, dim);
+   
+    // Setup the planning scene object that we'll need later.
+    arm_navigation_msgs::CollisionObject collisionObject = makeCollisionObject(goal->target.pose, goal->target.header.frame_id, dim);
+
+    moveArmOverLitterbox(goal->target.pose.position, dim, collisionObject);
     
     if(as.isPreemptRequested() || !ros::ok()){
       as.setPreempted();
       return;
     }
 
-    performScoop(goal->target.pose.position, dim);
+    performScoop(goal->target.pose.position, dim, collisionObject);
    
     if(as.isPreemptRequested() || !ros::ok()){
       as.setPreempted();
       return;
     }
  
-    moveArmOverLitterbox(goal->target.pose.position, dim);
+    moveArmOverLitterbox(goal->target.pose.position, dim, collisionObject);
     
     ROS_INFO("Litterbox cleaned successfully");
     as.setSucceeded(result);
@@ -136,8 +171,9 @@ private:
       return dim;
     }
     
-    ROS_INFO("Received LB dimensions");
     struct Dimensions dim = {srv.response.width, srv.response.depth, srv.response.height};
+    
+    ROS_INFO("Received LB dimensions width: %f depth: %f height %f", dim.width, dim.depth, dim.height);
     return dim;
   }
 
@@ -172,43 +208,52 @@ private:
   /**
    * Perform the scoop of the litterbox
    */
-  bool performScoop(const geometry_msgs::Point point, const Dimensions& dim){
+  bool performScoop(const geometry_msgs::Point point, const Dimensions& dim, const arm_navigation_msgs::CollisionObject& collisionObject){
 
-    // Move the right arm to the back of the litterbox.
     ROS_INFO("Litterbox base position is %f %f %f", point.x, point.y, point.z);
-
-    // Distance from each side to avoid.
-    // TODO: This should be based on half the size of the scoop.
-    const double BOX_BUFFER = 0.02;
-
-    // Now move to a random horizontal position.
-    geometry_msgs::Point position;
     
-    // Add randomness to pick a spot in the litter box.
-    // TODO: Replace box width with dynamically calculated width.
-    const double boxWidth = dim.width - 2 * BOX_BUFFER;
+    ROS_INFO("Moving to the back of the litterbox");
+    geometry_msgs::Point backPosition;
+    backPosition.x = -0.1;
+    moveRightArmRelative(backPosition, identityOrientation(), collisionObject);
+    
+    // Move to a random horizontal position.
+    geometry_msgs::Point horizPosition;
+    
+    // Add randomness to pick a spot in the litter box. The dimensions includes
+    // the width of the lb side, so subtract that. The robot should also not try
+    // to move the scoop within half of the width of the scoop on each side as
+    // that would collide.
+    const double scoopableArea = dim.width - (2 * LB_SIDE_WIDTH) - SCOOP_WIDTH;
+    ROS_INFO("Scoopable area of the litterbox is %f", scoopableArea);
 
-    double horizontal = boxWidth / double(2) - ((double(rand()) / RAND_MAX) * boxWidth);
-    position.x = 0;
-    position.y = horizontal;
-    position.z = 0;
+    double horizontal = scoopableArea / double(2) - ((double(rand()) / RAND_MAX) * scoopableArea);
+    horizPosition.x = 0;
+    horizPosition.y = 0;
+    horizPosition.z = horizontal;
+
     ROS_INFO("Adjusting horizontal by random %f", horizontal);
-    moveRightArmRelative(position, identityOrientation()); // vertical
+    moveRightArmRelative(horizPosition, identityOrientation(), collisionObject);
+
+    // ros::Duration(180).sleep();
     
     // Now lower the scoop.
-    position.x = 0;
-    position.y = 0;
-    position.z = -0.25;
+    geometry_msgs::Point noMove;
     ROS_INFO("Lowering scoop");
-    moveRightArmRelative(position, identityOrientation()); // vertical down
+    moveRightArmRelative(noMove, verticalDownOrientation(), collisionObject);
     
     // Now scoop
     ROS_INFO("Scooping");
-    position.x = dim.depth - boxWidth;
-    position.y = 0;
-    position.z = 0;
-    moveRightArmRelative(position, identityOrientation()); // vertical down
+    geometry_msgs::Point scoopMove;
+    scoopMove.x = dim.depth - 2 * LB_SIDE_WIDTH;
+    ROS_INFO("depth %f scoopMove %f", dim.depth, scoopMove.x);
+    scoopMove.y = 0;
+    scoopMove.z = 0;
+    moveRightArmRelative(scoopMove, identityOrientation(), collisionObject);
 
+
+    // Now pick the scoop up.
+    moveRightArmRelative(noMove, invVerticalDownOrientation(), collisionObject);
     ROS_INFO("Scoop complete");
     return true;
   }
@@ -217,16 +262,18 @@ private:
   /**
    * Move the arm over the litterbox 
    */
-  void moveArmOverLitterbox(const geometry_msgs::Point& point, const Dimensions& dim){
+  void moveArmOverLitterbox(const geometry_msgs::Point& point, const Dimensions& dim, const arm_navigation_msgs::CollisionObject& collisionObject){
     ROS_INFO("Moving arm over litterbox");
 
     // Center the arm over the litterbox 0.5 meters above the ground. Point should be the center point of the front
     // edge of the litterbox halfway back in the litterbox.
     ROS_INFO("Litterbox back in base frame x %f y %f z %f", point.x, point.y, point.z);
     geometry_msgs::Point overLitterboxPoint = point;
-    overLitterboxPoint.z = 0.25;
-    overLitterboxPoint.x; // TODO: This is rough. Scoop size should get us over the lb.
-    moveRightArm(overLitterboxPoint, identityOrientation(), "/torso_lift_link");
+    
+    overLitterboxPoint.x = overLitterboxPoint.x - SCOOP_LENGTH + (dim.depth / 2.0) - TORSO_TO_FRONT;
+    // Leave y as its the center of the litterbox.
+    overLitterboxPoint.z = -0.425;
+    moveRightArm(overLitterboxPoint, verticalOrientation(), "/torso_lift_link", collisionObject);
     ROS_INFO("Move arm complete");
   }
  
@@ -235,8 +282,8 @@ private:
    * @param position Position to move the arm to
    * @param orientation Orientation to move the arm to
    */
-  bool moveRightArmRelative(const geometry_msgs::Point position, const geometry_msgs::Quaternion orientation){
-    return moveRightArm(position, orientation, "r_wrist_roll_link");
+  bool moveRightArmRelative(const geometry_msgs::Point position, const geometry_msgs::Quaternion orientation, const arm_navigation_msgs::CollisionObject& collisionObject){
+    return moveRightArm(position, orientation, "r_wrist_roll_link", collisionObject);
   }
 
   /**
@@ -245,30 +292,53 @@ private:
    * @param orientation Orientation to move the arm to
    * @param referenceFrame Frame the movement is relative to
    */
-  bool moveRightArm(const geometry_msgs::Point position, const geometry_msgs::Quaternion orientation, const string referenceFrame){
+  bool moveRightArm(const geometry_msgs::Point position, const geometry_msgs::Quaternion orientation, const string referenceFrame, const arm_navigation_msgs::CollisionObject collisionObject){
      ROS_INFO("Moving to position %f %f %f in frame %s", position.x, position.y, position.z, referenceFrame.c_str());
      arm_navigation_msgs::MoveArmGoal goal;
      goal.motion_plan_request.group_name = "right_arm";
      goal.motion_plan_request.num_planning_attempts = 3;
      goal.motion_plan_request.planner_id = "";
      goal.planner_service_name = "ompl_planning/plan_kinematic_path";
-     goal.motion_plan_request.allowed_planning_time = ros::Duration(5.0);
+     goal.motion_plan_request.allowed_planning_time = ros::Duration(15.0);
 
-     arm_navigation_msgs::SimplePoseConstraint desiredPose;
-     desiredPose.header.frame_id = referenceFrame;
-     desiredPose.link_name = "r_wrist_roll_link";
-     desiredPose.pose.position = position;
-     desiredPose.pose.orientation = orientation;
+     arm_navigation_msgs::PositionConstraint desiredPos;
+     desiredPos.header.frame_id = referenceFrame;
+     desiredPos.link_name = "r_wrist_roll_link";
+     desiredPos.position = position;
+     desiredPos.constraint_region_shape.type = arm_navigation_msgs::Shape::BOX;
+     desiredPos.constraint_region_shape.dimensions.push_back(0.04);
+     desiredPos.constraint_region_shape.dimensions.push_back(0.04);
+     desiredPos.constraint_region_shape.dimensions.push_back(0.04);
+     desiredPos.constraint_region_orientation.x = 0;
+     desiredPos.constraint_region_orientation.y = 0;
+     desiredPos.constraint_region_orientation.z = 0;
+     desiredPos.constraint_region_orientation.w = 1;
+     desiredPos.weight = 1;
 
-     desiredPose.absolute_position_tolerance.x = 0.02;
-     desiredPose.absolute_position_tolerance.y = 0.02;
-     desiredPose.absolute_position_tolerance.z = 0.02;
+     arm_navigation_msgs::OrientationConstraint desiredOr;
+     desiredOr.header.frame_id = referenceFrame;
+     desiredOr.link_name = "r_wrist_roll_link";
 
-     desiredPose.absolute_roll_tolerance = 0.04;
-     desiredPose.absolute_pitch_tolerance = 0.04;
-     desiredPose.absolute_yaw_tolerance = 0.04;
-  
-     arm_navigation_msgs::addGoalConstraintToMoveArmGoal(desiredPose, goal);
+     desiredOr.orientation = orientation;
+     desiredOr.absolute_roll_tolerance = 0.04;
+     desiredOr.absolute_pitch_tolerance = 0.04;
+     desiredOr.absolute_yaw_tolerance = 0.04;
+     desiredOr.weight = 1.0;
+
+     goal.disable_collision_monitoring = true;
+
+     goal.motion_plan_request.goal_constraints.position_constraints.push_back(desiredPos);
+     goal.motion_plan_request.goal_constraints.orientation_constraints.push_back(desiredOr);
+
+     // Allow the scoop and the litterbox cube to intersect.
+     /*
+     goal.planning_scene_diff.collision_objects.push_back(collisionObject);
+     arm_navigation_msgs::CollisionOperation op;
+     op.object1 = "scoop";
+     op.object2 = collisionObject.id;
+     op.operation = arm_navigation_msgs::CollisionOperation::DISABLE;
+     goal.operations.collision_operations.push_back(op);
+     */
      return sendGoal(rightArmClient, goal, nh);
   }
 
@@ -285,7 +355,11 @@ private:
   }
 
   geometry_msgs::Quaternion verticalDownOrientation() const {
-    return tf::createQuaternionMsgFromRollPitchYaw(PI / 2.0, PI / 6.0, 0);
+    return tf::createQuaternionMsgFromRollPitchYaw(0, 0, -0.55);
+  }
+
+  geometry_msgs::Quaternion invVerticalDownOrientation() const {
+    return tf::createQuaternionMsgFromRollPitchYaw(0, 0, 0.55);
   }
 };
 

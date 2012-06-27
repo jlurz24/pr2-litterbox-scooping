@@ -48,7 +48,7 @@
             <kp>100000000.0</kp>
             <kd>1.0</kd>
             <xyz>0 -0.155 0.01</xyz>
-            <size>0.38 0.01 0.10</size>
+            <size>0.38 0.01 0.12</size>
             <massMatrix>true</massMatrix>
             <mass>10.0</mass>
             <ixx>1.0</ixx>
@@ -63,7 +63,7 @@
             <visual>
                 <xyz>0 0 0</xyz>
                 <rpy>0 0 0</rpy>
-                <scale>0.38 0.01 0.10</scale>
+                <scale>0.38 0.01 0.12</scale>
                 <mesh>unit_box</mesh>
                 <material>Gazebo/Green</material>
             </visual>
@@ -73,7 +73,7 @@
             <kp>100000000.0</kp>
             <kd>1.0</kd>
             <xyz>0 0.155 0.01</xyz>
-            <size>0.38 0.01 0.1</size>
+            <size>0.38 0.01 0.12</size>
             <massMatrix>true</massMatrix>
             <mass>10.0</mass>
             <ixx>1.0</ixx>
@@ -88,7 +88,7 @@
             <visual>
                 <xyz>0 0 0</xyz>
                 <rpy>0 0 0</rpy>
-                <scale>0.38 0.01 0.1</scale>
+                <scale>0.38 0.01 0.12</scale>
                 <mesh>unit_box</mesh>
                 <material>Gazebo/Green</material>
             </visual>
@@ -98,7 +98,7 @@
             <kp>100000000.0</kp>
             <kd>1.0</kd>
             <xyz>-0.19 0 0.01</xyz>
-            <size>0.01 0.31 0.1</size>
+            <size>0.01 0.31 0.12</size>
             <massMatrix>true</massMatrix>
             <mass>10.0</mass>
             <ixx>1.0</ixx>
@@ -113,7 +113,7 @@
             <visual>
                 <xyz>0 0 0</xyz>
                 <rpy>0 0 0</rpy>
-                <scale>0.01 0.31 0.1</scale>
+                <scale>0.01 0.31 0.12</scale>
                 <mesh>unit_box</mesh>
                 <material>Gazebo/Green</material>
             </visual>
@@ -123,7 +123,7 @@
             <kp>100000000.0</kp>
             <kd>1.0</kd>
             <xyz>0.19 0 0.01</xyz>
-            <size>0.01 0.31 0.1</size>
+            <size>0.01 0.31 0.12</size>
             <massMatrix>true</massMatrix>
             <mass>10.0</mass>
             <ixx>1.0</ixx>
@@ -138,7 +138,7 @@
             <visual>
                 <xyz>0 0 0</xyz>
                 <rpy>0 0 0</rpy>
-                <scale>0.01 0.31 0.1</scale>
+                <scale>0.01 0.31 0.12</scale>
                 <mesh>unit_box</mesh>
                 <material>Gazebo/Green</material>
             </visual>
