@@ -3,12 +3,19 @@
 #include <sensor_msgs/Image.h>
 #include <litterbox/find_rectangles.h>
 #include <cv_bridge/cv_bridge.h>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
 #include <pcl/point_types.h>
 #include <pcl_ros/point_cloud.h>
 #include <tf/transform_listener.h>
 
 using namespace cv;
 using namespace litterbox;
+
+static const unsigned int MAX_ATTEMPTS = 5;
+
+// From the master transforms
+static const double BASE_FOOTPRINT_HEIGHT = 0.051;
 
 bool compareMaxAngle(const RectangleInfo& l, const RectangleInfo& r){
   return r.maxAngle > l.maxAngle;
@@ -28,30 +35,53 @@ class DetermineLBDimensionsServer {
 
     bool determineDimensions(litterbox::DetermineLBDimensions::Request& req,
                          litterbox::DetermineLBDimensions::Response& res){
-   
-   ROS_INFO("Waiting for image message");
-   sensor_msgs::ImageConstPtr image = ros::topic::waitForMessage<sensor_msgs::Image>("/narrow_stereo/left/image_mono", nh);
-  
-   ROS_INFO("Received an image with width %u height %u", image->width, image->height);
 
-   // Wait for a 3d points message
+   bool foundLB = false;
+   unsigned int attempts = 0;
+   std::vector<RectangleInfo> rects;
+   sensor_msgs::ImageConstPtr image;
    sensor_msgs::PointCloud2ConstPtr imagePoints;
-   ROS_INFO("Waiting for 3d points message");
-   imagePoints = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/narrow_stereo/left/points");
 
-   // Begin processing the image.
-   cv_bridge::CvImageConstPtr cvImg = cv_bridge::toCvShare(image);
+   while(!foundLB && attempts++ < MAX_ATTEMPTS){   
+     ROS_INFO("Waiting for image message");
+     image = ros::topic::waitForMessage<sensor_msgs::Image>("/narrow_stereo/left/image_mono", nh, ros::Duration(30.0));
+  
+     ROS_INFO("Received an image with width %u height %u", image->width, image->height);
 
-   ROS_INFO("Finding rectangles");
-   std::vector<RectangleInfo> rects = findRectangles(cvImg->image);
+     // Wait for a 3d points message;
+     ROS_INFO("Waiting for 3d points message");
+     imagePoints = ros::topic::waitForMessage<sensor_msgs::PointCloud2>("/narrow_stereo/left/points");
+
+     // Begin processing the image.
+     cv_bridge::CvImageConstPtr cvImg = cv_bridge::toCvShare(image);
+
+     // Save the image for debugging.
+     if(debug){
+       std::string debugFileName = "debug_image.jpg";
+       privateNh.getParam("debug_file_name", debugFileName);
+       ROS_INFO("Saving image to %s", debugFileName.c_str());
+       cv::imwrite(debugFileName, cvImg->image);
+     }
+     ROS_INFO("Finding rectangles");
+     rects = findRectangles(cvImg->image);
    
-   // Remove bogus outer rectangle.
-   rects.erase(std::remove_if(rects.begin(), rects.end(), isTooLargeRectangle));
+     // Remove bogus outer rectangle.
+     if(rects.size() > 0){
+       rects.erase(std::remove_if(rects.begin(), rects.end(), isTooLargeRectangle));
+     }
 
-   if(rects.size() == 0){
-     // TODO: Set error message here
+     if(rects.size() == 0){
+       ROS_INFO("Litterbox not found. Retrying with a fresh image");
+       ros::Duration(1.0).sleep();
+     }
+     else {
+       foundLB = true;
+     }
+   }
+
+   if(!foundLB){
      ROS_INFO("Could not locate any rectangles that might be the litterbox");
-     return false;
+     return false; // TODO: Set error message
    }
 
    // Determine which rectangle to use.
@@ -98,9 +128,17 @@ class DetermineLBDimensionsServer {
      res.contour.push_back(resultPoint);
    }
 
+   // Calculate the centroid.
+   res.centroid.point.x = res.contour[0].point.x + (res.contour[2].point.x - res.contour[0].point.x) / 2.0;
+   res.centroid.point.y = res.contour[0].point.y - (res.contour[0].point.y - res.contour[2].point.y) / 2.0;
+  
    // Use average height of the corners.
-   res.height = (res.contour[0].point.z + res.contour[1].point.z + res.contour[2].point.z + res.contour[3].point.z) / 4.0;
-   ROS_INFO("Litterbox width %f depth %f height %f", res.width, res.depth, res.height);
+   res.height = std::max(res.contour[0].point.z, std::max(res.contour[1].point.z, std::max(res.contour[2].point.z, res.contour[3].point.z))) + BASE_FOOTPRINT_HEIGHT;
+   res.centroid.point.z = res.height / 2.0;
+   res.centroid.header.frame_id = "/base_footprint";
+   res.centroid.header.stamp = now;
+
+   ROS_INFO("Litterbox width %f depth %f height %f centroid x: %f, y: %f, z: %f", res.width, res.depth, res.height, res.centroid.point.x, res.centroid.point.y, res.centroid.point.z);
    return true;
   }
  

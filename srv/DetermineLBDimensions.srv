@@ -4,3 +4,4 @@ float64 width
 float64 depth
 float64 height
 geometry_msgs/PointStamped[] contour
+geometry_msgs/PointStamped centroid

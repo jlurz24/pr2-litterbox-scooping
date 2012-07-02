@@ -53,9 +53,11 @@ public:
     arm_navigation_msgs::Shape object;
     object.type = arm_navigation_msgs::Shape::BOX;
     object.dimensions.resize(3);
-    object.dimensions[0] = 0.04;
-    object.dimensions[1] = 0.04;
-    object.dimensions[2] = 0.35;
+
+    // Buffer dimensions slightly in-case the scoop slips around.
+    object.dimensions[0] = 0.05;
+    object.dimensions[1] = 0.05;
+    object.dimensions[2] = 0.38;
 
     geometry_msgs::Pose pose;
     pose.position.x = 0.15;

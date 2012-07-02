@@ -77,12 +77,12 @@ if __name__ == '__main__':
     parser.add_argument('position', metavar='N', type=float, nargs=3, help='x y z')
     parser.add_argument('rpy', metavar='N', type=float, nargs=3, help='r p y')
 
-    parser.add_argument('--relative')
+    parser.add_argument('--frame')
 
     args = parser.parse_args()
     frame = '/torso_lift_link'
-    if args.relative == 'Y':
-      frame = '/r_wrist_roll_link'
+    if len(args.frame) > 0:
+      frame = args.frame
 
     position = (args.position[0], args.position[1], args.position[2])
     orientation = (args.rpy[0], args.rpy[1], args.rpy[2])

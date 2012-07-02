@@ -83,9 +83,6 @@ public:
     as.setSucceeded(result);
   }
 
-  ~InsertScooper(){
-  }
-
   protected:
     ros::NodeHandle nh;
     ros::NodeHandle privateHandle;
@@ -94,7 +91,6 @@ public:
     bool scoopInserted;
     int waitTime;
 
-    // Actionlib classes
     actionlib::SimpleActionServer<litterbox::InsertScooperAction> as;
     string actionName;
     string scoopModelFile;

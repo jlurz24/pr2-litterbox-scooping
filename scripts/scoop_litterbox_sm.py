@@ -26,7 +26,6 @@ def quaternion_to_msg(q):
 def correct_direction(orientation):
   # Ensure the sign of the orientation is correct.
   roll, pitch, yaw = tf.transformations.euler_from_quaternion(msg_to_quaternion(orientation))
-  rospy.loginfo("Yaw: %f", yaw)
   if yaw < -math.pi / 2:
     yaw += math.pi
   if yaw > math.pi / 2:
@@ -79,11 +78,13 @@ def main():
        
         def move_to_trash_cb(userdata, goal):
           rospy.loginfo("Inside move to trash callback")
-          rospy.loginfo("Trash x %f y%f", userdata.trash_pose.pose.position.x, userdata.trash_pose.pose.position.y)
           goal = MoveToPositionGoal()
           userdata.trash_pose.header.stamp = rospy.Time()
           goal.target = tl.transformPose("/torso_lift_link", userdata.trash_pose)
           goal.target.pose.orientation = correct_direction(goal.target.pose.orientation)
+          # Remain 0.25 meters from the trash and slightly to the left.
+          goal.target.pose.position.x -= 0.25;
+          goal.target.pose.position.y += 0.25;
           return goal
 
 
@@ -105,6 +106,7 @@ def main():
           goal = ScoopLitterboxGoal()
           userdata.litterbox_pose.header.stamp = rospy.Time()
           goal.target = tl.transformPose("base_link", userdata.litterbox_pose)
+          rospy.loginfo("Litterbox is at position %f %f", goal.target.pose.position.x, goal.target.pose.position.y)
           return goal
 
         def dump_poop_cb(userdata, goal):

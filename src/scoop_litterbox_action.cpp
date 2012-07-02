@@ -7,6 +7,7 @@
 #include <pr2_controllers_msgs/PointHeadAction.h>
 #include <arm_navigation_msgs/utils.h>
 #include <boost/math/constants/constants.hpp>
+#include <tf/transform_listener.h>
 
 // TODO: Define pre and post conditions.
 
@@ -29,6 +30,8 @@ static const double TORSO_TO_FRONT = 0.075;
 static const double SCOOP_WIDTH = 0.08;
 
 static const double LB_SIDE_WIDTH = 0.02;
+
+static const double COLLISION_BUFFER = 0.05;
 
 /**
  * Cleans a litterbox
@@ -53,12 +56,14 @@ private:
     double width;
     double depth;
     double height;
+    geometry_msgs::PointStamped centroid;
   };
 
    auto_ptr<TorsoClient> torsoClient;
    auto_ptr<MoveArmClient> rightArmClient;
    auto_ptr<PointHeadClient> pointHeadClient;
    ros::NodeHandle nh;
+   tf::TransformListener tf;
 
    // Actionlib classes
    actionlib::SimpleActionServer<litterbox::ScoopLitterboxAction> as;
@@ -93,16 +98,26 @@ private:
     obj.header.frame_id = frameId;
     obj.id = "litterbox";
     obj.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
-   
-     
+       
     arm_navigation_msgs::Shape lbShape;
     lbShape.type = arm_navigation_msgs::Shape::BOX;
     lbShape.dimensions.resize(3);
-    lbShape.dimensions[0] = dimensions.width;
-    lbShape.dimensions[1] = dimensions.depth;
-    lbShape.dimensions[2] = dimensions.height;
+    lbShape.dimensions[0] = dimensions.depth + LB_SIDE_WIDTH + COLLISION_BUFFER;
+    lbShape.dimensions[1] = dimensions.width + LB_SIDE_WIDTH + COLLISION_BUFFER;
+    lbShape.dimensions[2] = dimensions.height + COLLISION_BUFFER;
     obj.shapes.push_back(lbShape);
-    obj.poses.push_back(pose);
+    
+    // TODO: Use full pose from this result instead of just position.
+    geometry_msgs::Pose lbPose = pose;
+    ROS_INFO("LB Pose Frame: %s Centroid frame: %s", frameId.c_str(), dimensions.centroid.header.frame_id.c_str());
+    tf.waitForTransform(dimensions.centroid.header.frame_id, frameId, dimensions.centroid.header.stamp, ros::Duration(10.0));
+
+    geometry_msgs::PointStamped lbPointInBaseFrame;
+    tf.transformPoint(frameId, dimensions.centroid, lbPointInBaseFrame);
+
+    lbPose.position = lbPointInBaseFrame.point;
+    ROS_INFO("Estimated position: %f %f %f. Updated position of litterbox at %f %f %f", pose.position.x, pose.position.y, pose.position.z, lbPose.position.x, lbPose.position.y, lbPose.position.z);
+    obj.poses.push_back(lbPose);
 
     obj.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
     
@@ -135,7 +150,7 @@ private:
       as.setPreempted();
       return;
     }
-    
+   
     const Dimensions dim = determineLBDimensions();
    
     // Setup the planning scene object that we'll need later.
@@ -148,30 +163,44 @@ private:
       return;
     }
 
+    // Do not pre-empty after this point because the robot
+    // may have already scooped and we need to reset the arm
+    // to a valid position for moving.
     performScoop(goal->target.pose.position, dim, collisionObject);
    
-    if(as.isPreemptRequested() || !ros::ok()){
-      as.setPreempted();
-      return;
-    }
- 
     moveArmOverLitterbox(goal->target.pose.position, dim, collisionObject);
     
+    moveArmToCarryingPosition(collisionObject);
+     
     ROS_INFO("Litterbox cleaned successfully");
     as.setSucceeded(result);
+  }
+
+  void moveArmToCarryingPosition(const arm_navigation_msgs::CollisionObject& collisionObject){
+    ROS_INFO("Moving arm to carrying position");
+
+    geometry_msgs::Point carryPosition;
+    carryPosition.x = -0.35;
+    carryPosition.y = -0.5;
+    carryPosition.z = 1.6;
+
+    moveRightArm(carryPosition, verticalOrientation(), "torso_lift_link", collisionObject);
   }
 
   Dimensions determineLBDimensions() {
     ROS_INFO("Determining LB dimensions");
     ros::ServiceClient determineLBDimClient = nh.serviceClient<litterbox::DetermineLBDimensions>("determine_lb_dimensions");
     litterbox::DetermineLBDimensions srv;
+    Dimensions dim;
     if(!determineLBDimClient.call(srv)){
       ROS_INFO("Failed to call determine_lb_dimensions service");
-      struct Dimensions dim = {0, 0, 0};
       return dim;
     }
     
-    struct Dimensions dim = {srv.response.width, srv.response.depth, srv.response.height};
+    dim.width = srv.response.width;
+    dim.depth = srv.response.depth;
+    dim.height = srv.response.height;
+    dim.centroid = srv.response.centroid;
     
     ROS_INFO("Received LB dimensions width: %f depth: %f height %f", dim.width, dim.depth, dim.height);
     return dim;
@@ -214,8 +243,8 @@ private:
     
     ROS_INFO("Moving to the back of the litterbox");
     geometry_msgs::Point backPosition;
-    backPosition.x = -0.1;
-    moveRightArmRelative(backPosition, identityOrientation(), collisionObject);
+    backPosition.x = -0.10; // TODO: Calculate this as the base of the triangle
+    moveRightArm(backPosition, identityOrientation(), "r_wrist_roll_link", collisionObject);
     
     // Move to a random horizontal position.
     geometry_msgs::Point horizPosition;
@@ -233,27 +262,37 @@ private:
     horizPosition.z = horizontal;
 
     ROS_INFO("Adjusting horizontal by random %f", horizontal);
-    moveRightArmRelative(horizPosition, identityOrientation(), collisionObject);
-
-    // ros::Duration(180).sleep();
+    moveRightArm(horizPosition, identityOrientation(), "r_wrist_roll_link", collisionObject);
     
     // Now lower the scoop.
     geometry_msgs::Point noMove;
     ROS_INFO("Lowering scoop");
-    moveRightArmRelative(noMove, verticalDownOrientation(), collisionObject);
+    moveRightArm(noMove, verticalDownOrientation(), "r_wrist_roll_link", collisionObject);
     
     // Now scoop
     ROS_INFO("Scooping");
-    geometry_msgs::Point scoopMove;
-    scoopMove.x = dim.depth - 2 * LB_SIDE_WIDTH;
-    ROS_INFO("depth %f scoopMove %f", dim.depth, scoopMove.x);
-    scoopMove.y = 0;
-    scoopMove.z = 0;
-    moveRightArmRelative(scoopMove, identityOrientation(), collisionObject);
 
+    // Transform the wrist point into the body frame since the frame is now pointed downwards and we want to
+    // scoop horizontally in the global frame. The body frame should be oriented straight on to the litterbox.
+    geometry_msgs::PointStamped wristPosition;
+    wristPosition.header.frame_id = "r_wrist_roll_link";
+    wristPosition.header.stamp = ros::Time::now();
+    geometry_msgs::PointStamped scoopMove;
+    tf.waitForTransform("r_wrist_roll_link", "torso_lift_link", wristPosition.header.stamp, ros::Duration(10.0));
+    tf.transformPoint("torso_lift_link", wristPosition, scoopMove);
+    
+    scoopMove.point.x += (dim.depth - 2 * LB_SIDE_WIDTH);
+    ROS_INFO("depth %f scoopMove %f", dim.depth, scoopMove.point.x);
+
+    // Transform back for simplicity. This is the same transform as above so we don't have to wait for it.
+    geometry_msgs::PointStamped scoopMoveInWristFrame;
+    scoopMove.header.frame_id = "torso_lift_link";
+    scoopMove.header.stamp = wristPosition.header.stamp;
+    tf.transformPoint("r_wrist_roll_link", scoopMove, scoopMoveInWristFrame);
+    moveRightArm(scoopMoveInWristFrame.point, identityOrientation(), "r_wrist_roll_link", collisionObject);
 
     // Now pick the scoop up.
-    moveRightArmRelative(noMove, invVerticalDownOrientation(), collisionObject);
+    moveRightArm(noMove, invVerticalDownOrientation(), "r_wrist_roll_link", collisionObject);
     ROS_INFO("Scoop complete");
     return true;
   }
@@ -272,18 +311,9 @@ private:
     
     overLitterboxPoint.x = overLitterboxPoint.x - SCOOP_LENGTH + (dim.depth / 2.0) - TORSO_TO_FRONT;
     // Leave y as its the center of the litterbox.
-    overLitterboxPoint.z = -0.425;
+    overLitterboxPoint.z = -0.435;
     moveRightArm(overLitterboxPoint, verticalOrientation(), "/torso_lift_link", collisionObject);
     ROS_INFO("Move arm complete");
-  }
- 
-  /**
-   * Move the right arm relative to the current position
-   * @param position Position to move the arm to
-   * @param orientation Orientation to move the arm to
-   */
-  bool moveRightArmRelative(const geometry_msgs::Point position, const geometry_msgs::Quaternion orientation, const arm_navigation_msgs::CollisionObject& collisionObject){
-    return moveRightArm(position, orientation, "r_wrist_roll_link", collisionObject);
   }
 
   /**
@@ -292,7 +322,7 @@ private:
    * @param orientation Orientation to move the arm to
    * @param referenceFrame Frame the movement is relative to
    */
-  bool moveRightArm(const geometry_msgs::Point position, const geometry_msgs::Quaternion orientation, const string referenceFrame, const arm_navigation_msgs::CollisionObject collisionObject){
+  bool moveRightArm(const geometry_msgs::Point& position, const geometry_msgs::Quaternion& orientation, const string& referenceFrame, const arm_navigation_msgs::CollisionObject& collisionObject){
      ROS_INFO("Moving to position %f %f %f in frame %s", position.x, position.y, position.z, referenceFrame.c_str());
      arm_navigation_msgs::MoveArmGoal goal;
      goal.motion_plan_request.group_name = "right_arm";
@@ -306,9 +336,9 @@ private:
      desiredPos.link_name = "r_wrist_roll_link";
      desiredPos.position = position;
      desiredPos.constraint_region_shape.type = arm_navigation_msgs::Shape::BOX;
-     desiredPos.constraint_region_shape.dimensions.push_back(0.04);
-     desiredPos.constraint_region_shape.dimensions.push_back(0.04);
-     desiredPos.constraint_region_shape.dimensions.push_back(0.04);
+     desiredPos.constraint_region_shape.dimensions.push_back(0.02);
+     desiredPos.constraint_region_shape.dimensions.push_back(0.02);
+     desiredPos.constraint_region_shape.dimensions.push_back(0.02);
      desiredPos.constraint_region_orientation.x = 0;
      desiredPos.constraint_region_orientation.y = 0;
      desiredPos.constraint_region_orientation.z = 0;
@@ -320,9 +350,9 @@ private:
      desiredOr.link_name = "r_wrist_roll_link";
 
      desiredOr.orientation = orientation;
-     desiredOr.absolute_roll_tolerance = 0.04;
-     desiredOr.absolute_pitch_tolerance = 0.04;
-     desiredOr.absolute_yaw_tolerance = 0.04;
+     desiredOr.absolute_roll_tolerance = 0.02;
+     desiredOr.absolute_pitch_tolerance = 0.02;
+     desiredOr.absolute_yaw_tolerance = 0.02;
      desiredOr.weight = 1.0;
 
      goal.disable_collision_monitoring = true;
@@ -331,14 +361,12 @@ private:
      goal.motion_plan_request.goal_constraints.orientation_constraints.push_back(desiredOr);
 
      // Allow the scoop and the litterbox cube to intersect.
-     /*
      goal.planning_scene_diff.collision_objects.push_back(collisionObject);
      arm_navigation_msgs::CollisionOperation op;
      op.object1 = "scoop";
      op.object2 = collisionObject.id;
      op.operation = arm_navigation_msgs::CollisionOperation::DISABLE;
      goal.operations.collision_operations.push_back(op);
-     */
      return sendGoal(rightArmClient, goal, nh);
   }
 
