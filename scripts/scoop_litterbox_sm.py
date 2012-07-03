@@ -83,7 +83,7 @@ def main():
           goal.target = tl.transformPose("/torso_lift_link", userdata.trash_pose)
           goal.target.pose.orientation = correct_direction(goal.target.pose.orientation)
           # Remain 0.25 meters from the trash and slightly to the left.
-          goal.target.pose.position.x -= 0.25;
+          goal.target.pose.position.x -= 0.4;
           goal.target.pose.position.y += 0.25;
           return goal
 
@@ -112,6 +112,9 @@ def main():
         def dump_poop_cb(userdata, goal):
           rospy.loginfo("Inside dump poop callback")
           goal = DumpPoopGoal()
+          userdata.trash_pose.header.stamp = rospy.Time()
+          goal.position = tl.transformPose("base_link", userdata.trash_pose)
+          rospy.loginfo("Trash is at position %f %f", goal.target.pose.position.x, goal.target.pose.position.y)
           return goal
 
         def explore_for_litterbox_cb(userdata, goal):
@@ -267,14 +270,14 @@ def main():
                                goal_cb=move_to_trash_cb,
                                input_keys=['trash_pose']),
                                transitions={'succeeded':'DUMP_POOP',
-                                            'preempted':'failure',
+                                            'preempted':'DUMP_POOP',
                                             'aborted': 'failure'})
 
         smach.StateMachine.add('DUMP_POOP',
                                SimpleActionState('dump_poop',
                                DumpPoopAction,
                                goal_cb=dump_poop_cb,
-                               input_keys=[]),
+                               input_keys=['trash_pose']),
                                transitions={'succeeded':'CON_DETECT_LITTERBOX',
                                             'preempted':'failure',
                                             'aborted': 'failure'})

@@ -5,13 +5,14 @@
 #include <arm_navigation_msgs/MoveArmAction.h>
 #include <arm_navigation_msgs/utils.h>
 #include <boost/math/constants/constants.hpp>
-
-// TODO: Define pre and post conditions.
+#include <tf/transform_listener.h>
 
 // Generated messages
 #include <litterbox/DumpPoopAction.h>
 
 typedef actionlib::SimpleActionClient<arm_navigation_msgs::MoveArmAction> MoveArmClient;
+
+static const double PI = boost::math::constants::pi<double>();
 
 using namespace std;
 
@@ -33,6 +34,7 @@ public:
   
   void preemptCB(){
     rightArmClient->cancelGoal();
+    moveArmToCarryingPosition();
     as.setPreempted();
   }
 
@@ -47,29 +49,30 @@ public:
     
    ROS_INFO("Dumping Poop");
     
-   std::vector<double> flipped = overTrashJoints();
-   flipped[6] -= boost::math::constants::pi<double>();
-   moveArmToJointPositions(flipped);
-   
-   if(as.isPreemptRequested() || !ros::ok()){
-      as.setPreempted();
-      return;
+   // Move arm over trash.
+   moveArmToOverTrashPosition(goal);
+   if(!as.isActive()){
+     ROS_INFO("Dump poop preempted");
+     moveArmToCarryingPosition();
+     return;
    }
-
-   ROS_INFO("Poop dumped. Returning to base orientation.");
-   moveArmToJointPositions(overTrashJoints());
-   ROS_INFO("Grabber returned to normal orientation");
-    
+ 
+   // Dump poop.
+   geometry_msgs::Point noMove;
+   moveRightArm(noMove, verticalOrientation(), "r_wrist_roll_link");
+   moveRightArm(noMove, verticalOrientation(), "r_wrist_roll_link");
+  
+   moveArmToCarryingPosition();
+ 
    as.setSucceeded(result);
   }
 
-  ~DumpPoopAction(){
-  }
   
   private:
     auto_ptr<MoveArmClient> rightArmClient;
     
     ros::NodeHandle nh;
+    tf::TransformListener tf;
 
     // Actionlib classes
     actionlib::SimpleActionServer<litterbox::DumpPoopAction> as;
@@ -79,62 +82,85 @@ public:
     litterbox::DumpPoopFeedback feedback;
     litterbox::DumpPoopResult result;
 
-  /**
-   * Joint positions that place the arm over the trash
-   */
-   std::vector<double> overTrashJoints(){
-     const static double positions[] = {-0.5,
-                                 0.4,
-                                 0,
-                                -0.2,
-                                 0.752,
-                                -0.327,
-                                 0.9
-                               };
+  void moveArmToOverTrashPosition(const litterbox::DumpPoopGoalConstPtr& goal){
+    ROS_INFO("Moving arm to over trashposition");
+    
+    geometry_msgs::PoseStamped trashPose = goal->target;
+    // Move arm slightly back due to length of scoop.
+    // TODO: Make this smarter
+    trashPose.pose.position.x -= 0.2;
 
-    return std::vector<double> (&positions[0], &positions[7]);
+    geometry_msgs::PoseStamped trashInWristFrame;
+    tf.waitForTransform(trashPose.header.frame_id, "r_wrist_roll_link", trashPose.header.stamp, ros::Duration(10.0));
+    tf.transformPose("r_wrist_roll_link", trashPose, trashInWristFrame);
+    moveRightArm(trashInWristFrame.pose.position, identityOrientation(), "r_wrist_roll_link");
   }
 
-   /* Move the arm according to a vector of joint positions. Must contain 7 positions in the following order:
-   * r_shoulder_pan_joint - 0.56 - -2.135
-   * r_shoulder_lift_joint - 1.29 - -0.35 deg
-   * r_upper_arm_roll_joint - 0.65 - -3.75 deg
-   * r_elbow_flex_joint - - -0.15 -2.12
-   * r_forearm_roll_joint - Continuous
-   * r_wrist_flex_joint - -2.0 - -0.1
-   * r_wrist_roll_joint - Continuous
+  void moveArmToCarryingPosition(){
+    ROS_INFO("Moving arm to carrying position");
+
+    geometry_msgs::PointStamped carryPosition;
+    carryPosition.point.x = -0.35;
+    carryPosition.point.y = -0.5;
+    carryPosition.point.z = -0.15;
+    carryPosition.header.frame_id = "torso_lift_link";
+    carryPosition.header.stamp = ros::Time::now();
+
+    geometry_msgs::PointStamped carryPositionInWristFrame;
+    tf.transformPoint("r_wrist_roll_link", carryPosition, carryPositionInWristFrame);
+    moveRightArm(carryPositionInWristFrame.point, identityOrientation(), "r_wrist_roll_link");
+  }
+
+  /**
+   * Return the identity orientation
+   * @return The identity orientation
    */
-  void moveArmToJointPositions(const std::vector<double>& positions){
+   geometry_msgs::Quaternion identityOrientation() const {
+     return tf::createQuaternionMsgFromRollPitchYaw(0, 0, 0);
+   }
 
-    arm_navigation_msgs::MoveArmGoal goalB;
-    std::vector<std::string> names(7);
-    names[0] = "r_shoulder_pan_joint";
-    names[1] = "r_shoulder_lift_joint";
-    names[2] = "r_upper_arm_roll_joint";
-    names[3] = "r_elbow_flex_joint";
-    names[4] = "r_forearm_roll_joint";
-    names[5] = "r_wrist_flex_joint";
-    names[6] = "r_wrist_roll_joint";
+   geometry_msgs::Quaternion verticalOrientation() const {
+     return tf::createQuaternionMsgFromRollPitchYaw(PI / 2.0, 0, 0);
+   }
+   
+   bool moveRightArm(const geometry_msgs::Point& position, const geometry_msgs::Quaternion& orientation, const string& referenceFrame){
+     ROS_INFO("Moving to position %f %f %f in frame %s", position.x, position.y, position.z, referenceFrame.c_str());
+     arm_navigation_msgs::MoveArmGoal goal;
+     goal.motion_plan_request.group_name = "right_arm";
+     goal.motion_plan_request.num_planning_attempts = 3;
+     goal.motion_plan_request.planner_id = "";
+     goal.planner_service_name = "ompl_planning/plan_kinematic_path";
+     goal.motion_plan_request.allowed_planning_time = ros::Duration(15.0);
 
-    goalB.motion_plan_request.group_name = "right_arm";
-    goalB.motion_plan_request.num_planning_attempts = 1;
-    goalB.motion_plan_request.allowed_planning_time = ros::Duration(5.0);
+     arm_navigation_msgs::PositionConstraint desiredPos;
+     desiredPos.header.frame_id = referenceFrame;
+     desiredPos.link_name = "r_wrist_roll_link";
+     desiredPos.position = position;
+     desiredPos.constraint_region_shape.type = arm_navigation_msgs::Shape::BOX;
+     desiredPos.constraint_region_shape.dimensions.push_back(0.02);
+     desiredPos.constraint_region_shape.dimensions.push_back(0.02);
+     desiredPos.constraint_region_shape.dimensions.push_back(0.02);
+     desiredPos.constraint_region_orientation.x = 0;
+     desiredPos.constraint_region_orientation.y = 0;
+     desiredPos.constraint_region_orientation.z = 0;
+     desiredPos.constraint_region_orientation.w = 1;
+     desiredPos.weight = 1;
 
-    goalB.motion_plan_request.planner_id= std::string("");
-    goalB.planner_service_name = std::string("ompl_planning/plan_kinematic_path");
-    goalB.motion_plan_request.goal_constraints.joint_constraints.resize(names.size());
+     arm_navigation_msgs::OrientationConstraint desiredOr;
+     desiredOr.header.frame_id = referenceFrame;
+     desiredOr.link_name = "r_wrist_roll_link";
 
-    for (unsigned int i = 0 ; i < goalB.motion_plan_request.goal_constraints.joint_constraints.size(); ++i){
-      goalB.motion_plan_request.goal_constraints.joint_constraints[i].joint_name = names[i];
-      goalB.motion_plan_request.goal_constraints.joint_constraints[i].position = 0.0;
-      goalB.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_below = 0.01;
-      goalB.motion_plan_request.goal_constraints.joint_constraints[i].tolerance_above = 0.01;
-    }
-    
-    for(unsigned int i = 0; i < positions.size(); ++i){
-      goalB.motion_plan_request.goal_constraints.joint_constraints[i].position = positions[i];
-    }
-    sendGoal(rightArmClient, goalB, nh);
+     desiredOr.orientation = orientation;
+     desiredOr.absolute_roll_tolerance = 0.02;
+     desiredOr.absolute_pitch_tolerance = 0.02;
+     desiredOr.absolute_yaw_tolerance = 0.02;
+     desiredOr.weight = 1.0;
+
+     goal.disable_collision_monitoring = true;
+
+     goal.motion_plan_request.goal_constraints.position_constraints.push_back(desiredPos);
+     goal.motion_plan_request.goal_constraints.orientation_constraints.push_back(desiredOr);
+     return sendGoal(rightArmClient, goal, nh);
   }
 };
 
