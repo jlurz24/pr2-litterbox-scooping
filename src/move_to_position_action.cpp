@@ -59,13 +59,15 @@ public:
     }
 
     // Point head at the target.
-    pointHeadAt(goal->target.pose.position, goal->target.header.frame_id);
+    if(goal->pointHeadAtTarget){
+      pointHeadAt(goal->target.pose.position, goal->target.header.frame_id);
 
-    if(as.isPreemptRequested() || !ros::ok()){
-      as.setPreempted();
-      return;
+      if(as.isPreemptRequested() || !ros::ok()){
+        as.setPreempted();
+        return;
+      }
     }
-
+    
     ROS_INFO("Moving to target position");
     printPose(goal->target.pose);
 
@@ -77,8 +79,9 @@ public:
     ROS_INFO("Target position reached");
 
     // Finish by pointing the robot's head back at the target.
-    pointHeadAt(goal->target.pose.position, goal->target.header.frame_id);
-
+    if(goal->pointHeadAtTarget){
+      pointHeadAt(goal->target.pose.position, goal->target.header.frame_id);
+    }
     as.setSucceeded(result);
   }
 

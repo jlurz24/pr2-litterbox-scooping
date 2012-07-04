@@ -33,6 +33,7 @@ static const double LB_SIDE_WIDTH = 0.02;
 
 static const double COLLISION_BUFFER = 0.05;
 
+static const double UNREACHABLE_DISTANCE = 0.04; // A small portion at the front of the LB is unreachable
 /**
  * Cleans a litterbox
  */
@@ -283,10 +284,10 @@ private:
     wristPosition.header.frame_id = "r_wrist_roll_link";
     wristPosition.header.stamp = ros::Time::now();
     geometry_msgs::PointStamped scoopMove;
-    tf.waitForTransform("r_wrist_roll_link", "torso_lift_link", wristPosition.header.stamp, ros::Duration(10.0));
+    tf.waitForTransform(wristPosition.header.frame_id, "torso_lift_link", wristPosition.header.stamp, ros::Duration(10.0));
     tf.transformPoint("torso_lift_link", wristPosition, scoopMove);
     
-    scoopMove.point.x += (dim.depth - 2 * LB_SIDE_WIDTH);
+    scoopMove.point.x += (dim.depth - 2 * LB_SIDE_WIDTH - UNREACHABLE_DISTANCE);
     ROS_INFO("depth %f scoopMove %f", dim.depth, scoopMove.point.x);
 
     // Transform back for simplicity. This is the same transform as above so we don't have to wait for it.

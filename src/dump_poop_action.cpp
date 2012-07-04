@@ -50,6 +50,7 @@ public:
    ROS_INFO("Dumping Poop");
     
    // Move arm over trash.
+   ROS_INFO("Moving arm over trash");
    moveArmToOverTrashPosition(goal);
    if(!as.isActive()){
      ROS_INFO("Dump poop preempted");
@@ -59,9 +60,11 @@ public:
  
    // Dump poop.
    geometry_msgs::Point noMove;
+   ROS_INFO("Rotating scoop 1");
    moveRightArm(noMove, verticalOrientation(), "r_wrist_roll_link");
+   ROS_INFO("Rotating scoop 2");
    moveRightArm(noMove, verticalOrientation(), "r_wrist_roll_link");
-  
+   ROS_INFO("Returning scoop to carry position");
    moveArmToCarryingPosition();
  
    as.setSucceeded(result);
@@ -85,10 +88,12 @@ public:
   void moveArmToOverTrashPosition(const litterbox::DumpPoopGoalConstPtr& goal){
     ROS_INFO("Moving arm to over trashposition");
     
+    ROS_INFO("Trashcan is at %f %f %f in %s", goal->target.pose.position.x, goal->target.pose.position.y, goal->target.pose.position.z, goal->target.header.frame_id.c_str());
     geometry_msgs::PoseStamped trashPose = goal->target;
     // Move arm slightly back due to length of scoop.
     // TODO: Make this smarter
-    trashPose.pose.position.x -= 0.2;
+    trashPose.pose.position.x -= 0.3;
+    trashPose.pose.position.z = 0.4; // TODO: Assumes trashcan height and target frame
 
     geometry_msgs::PoseStamped trashInWristFrame;
     tf.waitForTransform(trashPose.header.frame_id, "r_wrist_roll_link", trashPose.header.stamp, ros::Duration(10.0));
@@ -107,6 +112,7 @@ public:
     carryPosition.header.stamp = ros::Time::now();
 
     geometry_msgs::PointStamped carryPositionInWristFrame;
+    tf.waitForTransform(carryPosition.header.frame_id, "r_wrist_roll_link", carryPosition.header.stamp, ros::Duration(10.0));
     tf.transformPoint("r_wrist_roll_link", carryPosition, carryPositionInWristFrame);
     moveRightArm(carryPositionInWristFrame.point, identityOrientation(), "r_wrist_roll_link");
   }

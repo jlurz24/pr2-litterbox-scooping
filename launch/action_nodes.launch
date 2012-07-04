@@ -14,6 +14,9 @@
   <node pkg="litterbox" type="init" name="init" output="screen">
   </node>
 
+  <node pkg="litterbox" type="face_target" name="face_target" output="screen">
+  </node>
+
   <node pkg="litterbox" type="insert_scooper" name="insert_scooper" output="screen">
     <param name="simulation" type="bool" value="true"/>
     <param name="waittime" type="int" value="10"/>
