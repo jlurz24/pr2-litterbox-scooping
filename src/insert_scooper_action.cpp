@@ -9,7 +9,7 @@
 #include <tf/tf.h>
 #include <tf/transform_listener.h>
 #include <boost/math/constants/constants.hpp>
-
+#include <sstream>
 
 // TODO: Define pre and post conditions.
 
@@ -28,7 +28,7 @@ static const string SCOOP_MODEL_NAME = "scoop";
  */
 class InsertScooper {
 public:
-  InsertScooper(const string& name): privateHandle("~"), scoopInserted(false), as(nh, name, boost::bind(&InsertScooper::insertScooper, this, _1), false), actionName(name){
+  InsertScooper(const string& name): privateHandle("~"), scoopInserted(false), scoopNumber(0), as(nh, name, boost::bind(&InsertScooper::insertScooper, this, _1), false), actionName(name) {
 
     ROS_INFO("Starting init of the insert gripper action");
 
@@ -46,6 +46,8 @@ public:
    * Main function to initialize the robot
    */
   void insertScooper(const litterbox::InsertScooperGoalConstPtr& goal){
+    ROS_INFO("Received command to insert scoop");
+
     if(!as.isActive()){
       ROS_INFO("InsertScooper action cancelled prior to start");
       return;
@@ -53,8 +55,9 @@ public:
 
     // TODO: Determine if there is anywhere we should allow
     //       canceling in this method.
+    ROS_INFO("Opening the gripper");
     pr2_controllers_msgs::Pr2GripperCommandGoal open;
-    open.command.position = 0.06;
+    open.command.position = 0.04;
     open.command.max_effort = -1.0;
     sendGoal(gripperClient, open, nh);
 
@@ -90,6 +93,7 @@ public:
     bool isSimulation;
     bool scoopInserted;
     int waitTime;
+    int scoopNumber;
 
     actionlib::SimpleActionServer<litterbox::InsertScooperAction> as;
     string actionName;
@@ -102,23 +106,23 @@ public:
     litterbox::InsertScooperResult result;
 
     bool insertScooperSim(){
-        if(scoopInserted){
-          // Delete the scoop first.
-          ros::service::waitForService("gazebo/delete_model");
-          ros::ServiceClient deleteClient = nh.serviceClient<gazebo::DeleteModel> ("/gazebo/delete_model", true);
-          ROS_INFO("Connected to delete model client. Deleting the scoop model"); 
-       
-          gazebo::DeleteModel deleteModel;
-          deleteModel.request.model_name = SCOOP_MODEL_NAME;
-          deleteClient.call(deleteModel);
-          if(!deleteModel.response.success){
-            ROS_INFO("Delete scoop model failed: %s", deleteModel.response.status_message.c_str());
-          } else {
-            // Gazebo takes a moment to reset
-            ros::Duration(1.0).sleep();
-            ROS_INFO("Delete scoop model complete");
-          }
+      if(scoopInserted){
+        // Delete the scoop first.
+        ros::service::waitForService("gazebo/delete_model");
+        ros::ServiceClient deleteClient = nh.serviceClient<gazebo::DeleteModel> ("/gazebo/delete_model", true);
+        gazebo::DeleteModel deleteModel;
+        stringstream oldScoopName;
+        oldScoopName << SCOOP_MODEL_NAME << "_" << scoopNumber - 1;
+        deleteModel.request.model_name = oldScoopName.str();
+        deleteClient.call(deleteModel);
+        if(!deleteModel.response.success){
+          ROS_INFO("Delete scoop model failed: %s", deleteModel.response.status_message.c_str());
+        } else {
+          // Gazebo takes a moment to reset
+          ros::Duration(5.0).sleep();
+          ROS_INFO("Delete scoop model complete");
         }
+      }
 
         // Now add the model
         ros::service::waitForService("gazebo/spawn_gazebo_model");
@@ -133,14 +137,16 @@ public:
     
         model.request.model_xml = stream.str();
         model.request.robot_namespace = "";
-        model.request.model_name = SCOOP_MODEL_NAME;
-    
+        stringstream scoopName;
+        scoopName << SCOOP_MODEL_NAME << "_" << scoopNumber;
+        model.request.model_name = scoopName.str();
+        scoopNumber++;
         // Setting the reference frame does not work, so convert using tf
         // to the r_gripper_tool_frame
         tf::TransformListener tf;
     
-        ROS_INFO("Waiting for transform");
-        tf.waitForTransform("/r_gripper_tool_frame", "/odom_combined", ros::Time(0), ros::Duration(1000.0));
+        ROS_INFO("Waiting for transform from r_gripper_tool_frame to odom_combined");
+        tf.waitForTransform("/r_gripper_tool_frame", "/odom_combined", ros::Time(0), ros::Duration(10.0));
     
         geometry_msgs::PoseStamped gripperPose;
         gripperPose.header.frame_id = "/r_gripper_tool_frame";
@@ -152,29 +158,23 @@ public:
         geometry_msgs::PoseStamped worldPose;
         tf.transformPose("/odom_combined", gripperPose, worldPose);
     
-        ROS_INFO("Transformed position %f %f %f", worldPose.pose.position.x, worldPose.pose.position.y, worldPose.pose.position.z);
-    
         model.request.initial_pose = worldPose.pose;
         gazeboClient.call(model);
         if(!model.response.success){
-            ROS_INFO("Add model call failed");
+          ROS_INFO("Add model call failed: %s", model.response.status_message.c_str());
         }
         else {
-            scoopInserted = true;
-            ROS_INFO("Added successfully");
+          scoopInserted = true;
+          ROS_INFO("Scoop added successfully");
         }
-        ROS_INFO("Response status: %s", model.response.status_message.c_str());
         return model.response.success;
     }
 };
 
 int main(int argc, char** argv){
-  ROS_INFO("Main function for insert_scooper_action");
+  ROS_INFO("Initializing node insert_scooper_action");
   ros::init(argc, argv, "insert_scooper_action");
-  ROS_INFO("ROS_INIT complete");
   InsertScooper action(ros::this_node::getName());
-  ROS_INFO("Waiting for actions");
   ros::spin();
-
   return 0;
 }
