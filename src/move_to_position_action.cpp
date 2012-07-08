@@ -77,11 +77,8 @@ public:
     sendGoal(baseClient, moveGoal, nh, 60);
 
     ROS_INFO("Target position reached");
-
-    // Finish by pointing the robot's head back at the target.
-    if(goal->pointHeadAtTarget){
-      pointHeadAt(goal->target.pose.position, goal->target.header.frame_id);
-    }
+    // Don't repoint the head at the target because the robot
+    // is now on top of it.
     as.setSucceeded(result);
   }
 

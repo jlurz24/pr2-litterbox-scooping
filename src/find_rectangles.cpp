@@ -119,7 +119,7 @@ const std::vector<RectangleInfo> findRectangles(const cv::Mat& img){
             }
         }
     }
-    ROS_INFO("Located %i rectangles", rectangles.size());
+    ROS_INFO("Located %lu rectangles", rectangles.size());
     return rectangles;
 }
 

@@ -71,8 +71,6 @@ def main():
     with sm:
 
         def move_to_litterbox_cb(userdata, goal):
-          # TODO: This really needs to do the same thing with frames
-          #       as move to trash does
           rospy.loginfo("Inside move to lb callback")
           goal = MoveToPositionGoal()
           userdata.litterbox_pose.header.stamp = rospy.Time.now()
@@ -97,10 +95,16 @@ def main():
           goalInLBFrame.pose.orientation.x = 0
           goalInLBFrame.pose.orientation.y = 0
           goalInLBFrame.pose.orientation.z = 0
-          goalInLBrame.pose.orientation.w = 1
+          goalInLBFrame.pose.orientation.w = 1
           goalInLBFrame.header.frame_id = 'litterbox_frame'
           goalInLBFrame.header.stamp = rospy.Time(0)
-          
+         
+          # Convert to map frame
+          rospy.loginfo("Waiting for litterbox transform")
+          tl.waitForTransform("/map", goalInLBFrame.header.frame_id, rospy.Time(0), rospy.Duration(10.0))
+          goal.target = tl.transformPose("/map", goalInLBFrame)
+          goal.target.header.stamp = rospy.Time.now()
+ 
           goal.pointHeadAtTarget = True
           return goal
        
@@ -119,7 +123,7 @@ def main():
           # Convert to map frame
           rospy.loginfo("Waiting for litterbox transform")
           tl.waitForTransform("/map", goalInLBFrame.header.frame_id, rospy.Time(0), rospy.Duration(10.0))
-          goal.target = tl.transformPose("/map", goalInLBFrame)
+          goal.target = tl.transformPose("/map", goal)
           goal.target.header.stamp = rospy.Time.now()
           goal.pointHeadAtTarget = True
 

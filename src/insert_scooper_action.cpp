@@ -111,8 +111,13 @@ public:
           gazebo::DeleteModel deleteModel;
           deleteModel.request.model_name = SCOOP_MODEL_NAME;
           deleteClient.call(deleteModel);
-          ros::Duration(1.0).sleep();
-          ROS_INFO("Delete scoop model complete");
+          if(!deleteModel.response.success){
+            ROS_INFO("Delete scoop model failed: %s", deleteModel.response.status_message.c_str());
+          } else {
+            // Gazebo takes a moment to reset
+            ros::Duration(1.0).sleep();
+            ROS_INFO("Delete scoop model complete");
+          }
         }
 
         // Now add the model

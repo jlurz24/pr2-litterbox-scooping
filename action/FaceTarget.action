@@ -1,0 +1,4 @@
+#goal definition
+geometry_msgs/PoseStamped target
+---
+---
