@@ -53,7 +53,7 @@ public:
   void moveToPosition(const litterbox::MoveToPositionGoalConstPtr& goal){
     ROS_INFO("Moving to position");
     
-    if(!as.isActive()){
+    if(!as.isActive() || as.isPreemptRequested() || !ros::ok()){
       ROS_INFO("Move to position action cancelled before started");
       return;
     }
@@ -79,7 +79,13 @@ public:
     ROS_INFO("Target position reached");
     // Don't repoint the head at the target because the robot
     // is now on top of it.
-    as.setSucceeded(result);
+    
+    if(as.isPreemptRequested() || !ros::ok()){
+      as.setPreempted();
+    }
+    else {
+      as.setSucceeded(result);
+    }
   }
 
   protected:

@@ -22,19 +22,13 @@ using namespace std;
 class DumpPoopAction {
 public:
   DumpPoopAction(const string& name): as(nh, name, boost::bind(&DumpPoopAction::dumpPoop, this, _1), false), actionName(name){
-    
-    ROS_INFO("Starting initialization");
-    
-    rightArmClient = initClient<MoveArmClient>("move_right_arm");
     as.registerPreemptCallback(boost::bind(&DumpPoopAction::preemptCB, this));
     as.start();
-    
-    ROS_INFO("Initialization complete");
   }
   
   void preemptCB(){
-    rightArmClient->cancelGoal();
-    moveArmToCarryingPosition();
+    auto_ptr<MoveArmClient> rightArmClient = initClient<MoveArmClient>("move_right_arm");
+    moveArmToCarryingPosition(rightArmClient.get());
     as.setPreempted();
   }
 
@@ -50,30 +44,29 @@ public:
    ROS_INFO("Dumping Poop");
     
    // Move arm over trash.
+   auto_ptr<MoveArmClient> rightArmClient = initClient<MoveArmClient>("move_right_arm");
    ROS_INFO("Moving arm over trash");
-   moveArmToOverTrashPosition(goal);
+   moveArmToOverTrashPosition(goal, rightArmClient.get());
    if(!as.isActive()){
      ROS_INFO("Dump poop preempted");
-     moveArmToCarryingPosition();
+     moveArmToCarryingPosition(rightArmClient.get());
      return;
    }
  
    // Dump poop.
    geometry_msgs::Point noMove;
    ROS_INFO("Rotating scoop 1");
-   moveRightArm(noMove, verticalOrientation(), "r_wrist_roll_link");
+   moveRightArm(noMove, verticalOrientation(), "r_wrist_roll_link", rightArmClient.get());
    ROS_INFO("Rotating scoop 2");
-   moveRightArm(noMove, verticalOrientation(), "r_wrist_roll_link");
+   moveRightArm(noMove, verticalOrientation(), "r_wrist_roll_link", rightArmClient.get());
    ROS_INFO("Returning scoop to carry position");
-   moveArmToCarryingPosition();
+   moveArmToCarryingPosition(rightArmClient.get());
  
    as.setSucceeded(result);
   }
 
   
   private:
-    auto_ptr<MoveArmClient> rightArmClient;
-    
     ros::NodeHandle nh;
     tf::TransformListener tf;
 
@@ -85,23 +78,23 @@ public:
     litterbox::DumpPoopFeedback feedback;
     litterbox::DumpPoopResult result;
 
-  void moveArmToOverTrashPosition(const litterbox::DumpPoopGoalConstPtr& goal){
+  void moveArmToOverTrashPosition(const litterbox::DumpPoopGoalConstPtr& goal, MoveArmClient* rightArmClient){
     ROS_INFO("Moving arm to over trashposition");
     
     ROS_INFO("Trashcan is at %f %f %f in %s", goal->target.pose.position.x, goal->target.pose.position.y, goal->target.pose.position.z, goal->target.header.frame_id.c_str());
     geometry_msgs::PoseStamped trashPose = goal->target;
     // Move arm slightly back due to length of scoop.
     // TODO: Make this smarter
-    trashPose.pose.position.x -= 0.3;
+    // trashPose.pose.position.x -= 0.3;
     trashPose.pose.position.z = 0.4; // TODO: Assumes trashcan height and target frame
 
     geometry_msgs::PoseStamped trashInWristFrame;
     tf.waitForTransform(trashPose.header.frame_id, "r_wrist_roll_link", trashPose.header.stamp, ros::Duration(10.0));
     tf.transformPose("r_wrist_roll_link", trashPose, trashInWristFrame);
-    moveRightArm(trashInWristFrame.pose.position, identityOrientation(), "r_wrist_roll_link");
+    moveRightArm(trashInWristFrame.pose.position, identityOrientation(), "r_wrist_roll_link", rightArmClient);
   }
 
-  void moveArmToCarryingPosition(){
+  void moveArmToCarryingPosition(MoveArmClient* rightArmClient){
     ROS_INFO("Moving arm to carrying position");
 
     geometry_msgs::PointStamped carryPosition;
@@ -114,7 +107,7 @@ public:
     geometry_msgs::PointStamped carryPositionInWristFrame;
     tf.waitForTransform(carryPosition.header.frame_id, "r_wrist_roll_link", carryPosition.header.stamp, ros::Duration(10.0));
     tf.transformPoint("r_wrist_roll_link", carryPosition, carryPositionInWristFrame);
-    moveRightArm(carryPositionInWristFrame.point, identityOrientation(), "r_wrist_roll_link");
+    moveRightArm(carryPositionInWristFrame.point, identityOrientation(), "r_wrist_roll_link", rightArmClient);
   }
 
   /**
@@ -129,7 +122,7 @@ public:
      return tf::createQuaternionMsgFromRollPitchYaw(PI / 2.0, 0, 0);
    }
    
-   bool moveRightArm(const geometry_msgs::Point& position, const geometry_msgs::Quaternion& orientation, const string& referenceFrame){
+   bool moveRightArm(const geometry_msgs::Point& position, const geometry_msgs::Quaternion& orientation, const string& referenceFrame, MoveArmClient* rightArmClient){
      ROS_INFO("Moving to position %f %f %f in frame %s", position.x, position.y, position.z, referenceFrame.c_str());
      arm_navigation_msgs::MoveArmGoal goal;
      goal.motion_plan_request.group_name = "right_arm";

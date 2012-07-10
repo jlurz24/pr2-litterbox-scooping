@@ -111,22 +111,22 @@ def main():
         def move_away_cb(userdata, goal):
           rospy.loginfo("Inside move away callback")
           goal = MoveToPositionGoal()
-          goal.target.pose.position.y = 0
-          goal.target.pose.position.x = -1
-          goal.target.pose.orientation.x = 0
-          goal.target.pose.orientation.y = 0
-          goal.target.pose.orientation.z = 0
-          goal.target.pose.orientation.w = 1
-          goal.target.header.frame_id = "/torso_lift_link"
-          goal.target.header.stamp = rospy.Time.now()
+          goalInTF = PoseStamped()
+          goalInTF.pose.position.y = 0
+          goalInTF.pose.position.x = -1
+          goalInTF.pose.orientation.x = 0
+          goalInTF.pose.orientation.y = 0
+          goalInTF.pose.orientation.z = 0
+          goalInTF.pose.orientation.w = 1
+          goalInTF.header.frame_id = "/torso_lift_link"
+          goalInTF.header.stamp = rospy.Time(0)
           
           # Convert to map frame
           rospy.loginfo("Waiting for litterbox transform")
-          tl.waitForTransform("/map", goalInLBFrame.header.frame_id, rospy.Time(0), rospy.Duration(10.0))
-          goal.target = tl.transformPose("/map", goal)
+          tl.waitForTransform("/map", goalInTF.header.frame_id, rospy.Time(0), rospy.Duration(10.0))
+          goal.target = tl.transformPose("/map", goalInTF)
           goal.target.header.stamp = rospy.Time.now()
-          goal.pointHeadAtTarget = True
-
+          goal.pointHeadAtTarget = False
           return goal
        
         def move_to_trash_cb(userdata, goal):
@@ -139,7 +139,7 @@ def main():
           tl.waitForTransform("/torso_lift_link", userdata.trash_pose.header.frame_id, userdata.trash_pose.header.stamp, rospy.Duration(10.0))
           trashPoseInRobotFrame = tl.transformPose("/torso_lift_link", userdata.trash_pose)
           trashPoseInRobotFrame.pose.orientation = correct_direction(trashPoseInRobotFrame.pose.orientation)
-
+          rospy.loginfo("Litterbox is at x: %f y: %f in robot frame", trashPoseInRobotFrame.pose.position.x, trashPoseInRobotFrame.pose.position.y)
           # Switch back to map frame.
           tl.waitForTransform("/torso_lift_link", trashPoseInRobotFrame.header.frame_id, trashPoseInRobotFrame.header.stamp, rospy.Duration(10.0))
           trashPoseInMapFrame = tl.transformPose("/map", trashPoseInRobotFrame)
@@ -148,7 +148,7 @@ def main():
           broadcast_transform('trash_frame', trashPoseInMapFrame)
          
           goalInTrashFrame = PoseStamped()
-          goalInTrashFrame.pose.position.y = 0
+          goalInTrashFrame.pose.position.y = -0.75
           goalInTrashFrame.pose.position.x = -0.75
           goalInTrashFrame.pose.position.z = 0
           goalInTrashFrame.pose.orientation.x = 0
@@ -173,11 +173,12 @@ def main():
           return False
 
         def detect_trash_cb(userdata, msg):
-          rospy.loginfo("Inside trash detection callback x %f y %f", msg.pose.position.x, msg.pose.position.y)
+          rospy.loginfo("Inside trash detection callback x %f y %f in map frame", msg.pose.position.x, msg.pose.position.y)
           sm.userdata.trash_pose = msg
           return False
 
         def detect_scooper_attached_cb(userdata, msg):
+            rospy.sleep(1.0) # HACK to work around preemption prior to the action firing 
             return msg.attached
 
         def scoop_litterbox_cb(userdata, goal):
@@ -196,7 +197,7 @@ def main():
           userdata.trash_pose.header.stamp = rospy.Time()
           tl.waitForTransform("base_link", userdata.trash_pose.header.frame_id, userdata.trash_pose.header.stamp, rospy.Duration(10.0))
           goal.target = tl.transformPose("base_link", userdata.trash_pose)
-          rospy.loginfo("Trash is at position %f %f", goal.target.pose.position.x, goal.target.pose.position.y)
+          rospy.loginfo("Trash is at position %f %f in base_link prior to scooping", goal.target.pose.position.x, goal.target.pose.position.y)
           return goal
 
         def explore_for_litterbox_cb(userdata, goal):
@@ -311,7 +312,8 @@ def main():
                                transitions={'reached':'SCOOP_LITTERBOX',
                                             'notreached':'failure',
                                             'scooper_dropped':'INSERT_SCOOP'})
-        smach.StateMachine.add('MOVE_AWAY', 
+
+        smach.StateMachine.add('MOVE_AWAY_FROM_LB', 
                                SimpleActionState('move_to_position',
                                MoveToPositionAction,
                                goal_cb=move_away_cb,
@@ -319,6 +321,15 @@ def main():
                                transitions={'succeeded': 'CON_DETECT_TRASH',
                                             'preempted': 'CON_DETECT_TRASH',
                                             'aborted': 'CON_DETECT_TRASH'})
+
+        smach.StateMachine.add('MOVE_AWAY_FROM_TRASH',
+                               SimpleActionState('move_to_position',
+                               MoveToPositionAction,
+                               goal_cb=move_away_cb,
+                               input_keys=[]),
+                               transitions={'succeeded': 'CON_DETECT_LITTERBOX',
+                                            'preempted': 'CON_DETECT_LITTERBOX',
+                                            'aborted': 'CON_DETECT_LITTERBOX'})
 
         smach.StateMachine.add('INSERT_SCOOP',
                                SimpleActionState('insert_scooper',
@@ -334,7 +345,7 @@ def main():
                                ScoopLitterboxAction,
                                goal_cb=scoop_litterbox_cb,
                                input_keys=['litterbox_pose']),
-                               transitions={'succeeded':'MOVE_AWAY',
+                               transitions={'succeeded':'MOVE_AWAY_FROM_LB',
                                             'preempted':'SCOOP_LITTERBOX',
                                             'aborted': 'failure'})
 
@@ -390,9 +401,9 @@ def main():
                                DumpPoopAction,
                                goal_cb=dump_poop_cb,
                                input_keys=['trash_pose']),
-                               transitions={'succeeded':'CON_DETECT_LITTERBOX',
-                                            'preempted':'failure',
-                                            'aborted': 'failure'})
+                               transitions={'succeeded':'MOVE_AWAY_FROM_TRASH',
+                                            'preempted':'MOVE_AWAY_FROM_TRASH',
+                                            'aborted': 'MOVE_AWAY_FROM_TRASH'})
 
     # Execute SMACH plan
     outcome = sm.execute()

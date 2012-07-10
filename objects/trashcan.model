@@ -40,7 +40,7 @@
                 <rpy>0 0 0</rpy>
                 <scale>0.3 0.3 0.01</scale>
                 <mesh>unit_box</mesh>
-                <material>Gazebo/Red</material>
+                <material>Gazebo/White</material>
             </visual>
         </geom:box>
 
@@ -68,7 +68,30 @@
                 <material>Gazebo/Red</material>
             </visual>
         </geom:box>
-
+        <geom:box name="trashcan_left_in_geom">
+            <kp>100000000.0</kp>
+            <kd>1.0</kd>
+            <xyz>0 -0.14 0.01</xyz>
+            <size>0.3 0.01 0.3</size>
+            <massMatrix>true</massMatrix>
+            <mass>1.0</mass>
+            <ixx>1.0</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>1.0</iyy>
+            <iyz>0</iyz>
+            <izz>1.0</izz>
+            <cx>0</cx>
+            <cy>0</cy>
+            <cz>0</cz>
+            <visual>
+                <xyz>0 0 0</xyz>
+                <rpy>0 0 0</rpy>
+                <scale>0.3 0.01 0.3</scale>
+                <mesh>unit_box</mesh>
+                <material>Gazebo/White</material>
+            </visual>
+        </geom:box>
         <geom:box name="trashcan_right_geom">
             <kp>100000000.0</kp>
             <kd>1.0</kd>
@@ -93,7 +116,30 @@
                 <material>Gazebo/Red</material>
             </visual>
         </geom:box>
-        
+         <geom:box name="trashcan_right_in_geom">
+            <kp>100000000.0</kp>
+            <kd>1.0</kd>
+            <xyz>0 0.14 0.01</xyz>
+            <size>0.3 0.01 0.3</size>
+            <massMatrix>true</massMatrix>
+            <mass>1.0</mass>
+            <ixx>1.0</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>1.0</iyy>
+            <iyz>0</iyz>
+            <izz>1.0</izz>
+            <cx>0</cx>
+            <cy>0</cy>
+            <cz>0</cz>
+            <visual>
+                <xyz>0 0 0</xyz>
+                <rpy>0 0 0</rpy>
+                <scale>0.3 0.01 0.3</scale>
+                <mesh>unit_box</mesh>
+                <material>Gazebo/White</material>
+            </visual>
+        </geom:box>
         <geom:box name="trashcan_back_geom">
             <kp>100000000.0</kp>
             <kd>1.0</kd>
@@ -118,7 +164,30 @@
                 <material>Gazebo/Red</material>
             </visual>
         </geom:box>
-
+        <geom:box name="trashcan_back_in_geom">
+            <kp>100000000.0</kp>
+            <kd>1.0</kd>
+            <xyz>-0.14 0 0.01</xyz>
+            <size>0.01 0.3 0.3</size>
+            <massMatrix>true</massMatrix>
+            <mass>1.0</mass>
+            <ixx>1.0</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>1.0</iyy>
+            <iyz>0</iyz>
+            <izz>1.0</izz>
+            <cx>0</cx>
+            <cy>0</cy>
+            <cz>0</cz>
+            <visual>
+                <xyz>0 0 0</xyz>
+                <rpy>0 0 0</rpy>
+                <scale>0.01 0.3 0.3</scale>
+                <mesh>unit_box</mesh>
+                <material>Gazebo/White</material>
+            </visual>
+        </geom:box>
         <geom:box name="trash_front_geom">
             <kp>100000000.0</kp>
             <kd>1.0</kd>
@@ -142,7 +211,31 @@
                 <mesh>unit_box</mesh>
                 <material>Gazebo/Red</material>
             </visual>
-        </geom:box>-->
+        </geom:box>
+        <geom:box name="trash_front_geom_in">
+            <kp>100000000.0</kp>
+            <kd>1.0</kd>
+            <xyz>0.14 0 0.01</xyz>
+            <size>0.01 0.3 0.3</size>
+            <massMatrix>true</massMatrix>
+            <mass>1.0</mass>
+            <ixx>1.0</ixx>
+            <ixy>0</ixy>
+            <ixz>0</ixz>
+            <iyy>1.0</iyy>
+            <iyz>0</iyz>
+            <izz>1.0</izz>
+            <cx>0</cx>
+            <cy>0</cy>
+            <cz>0</cz>
+            <visual>
+                <xyz>0 0 0</xyz>
+                <rpy>0 0 0</rpy>
+                <scale>0.01 0.3 0.3</scale>
+                <mesh>unit_box</mesh>
+                <material>Gazebo/White</material>
+            </visual>
+        </geom:box>
     </body:box>
 </model:physical>
 

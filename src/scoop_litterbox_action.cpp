@@ -41,15 +41,8 @@ class ScoopLitterboxAction {
 public:
   ScoopLitterboxAction(const string& name): as(nh, name, boost::bind(&ScoopLitterboxAction::scoopLitterbox, this, _1), false),
     actionName(name){
-       
-    ROS_INFO("Starting initialization");
-    
     as.registerPreemptCallback(boost::bind(&ScoopLitterboxAction::preemptCB, this));
-    torsoClient = initClient<TorsoClient>("torso_controller/position_joint_action");
-    rightArmClient = initClient<MoveArmClient>("move_right_arm");
-    pointHeadClient = initClient<PointHeadClient>("/head_traj_controller/point_head_action"); 
     as.start();
-    ROS_INFO("Initialization complete");
   }
  
 private:
@@ -60,36 +53,19 @@ private:
     geometry_msgs::PointStamped centroid;
   };
 
-   auto_ptr<TorsoClient> torsoClient;
-   auto_ptr<MoveArmClient> rightArmClient;
-   auto_ptr<PointHeadClient> pointHeadClient;
-   ros::NodeHandle nh;
-   tf::TransformListener tf;
+  ros::NodeHandle nh;
+  tf::TransformListener tf;
 
-   // Actionlib classes
-   actionlib::SimpleActionServer<litterbox::ScoopLitterboxAction> as;
-   string actionName;
+  // Actionlib classes
+  actionlib::SimpleActionServer<litterbox::ScoopLitterboxAction> as;
+  string actionName;
 
-   // create messages that are used to published feedback/result
-   litterbox::ScoopLitterboxFeedback feedback;
-   litterbox::ScoopLitterboxResult result;
+  // create messages that are used to published feedback/result
+  litterbox::ScoopLitterboxFeedback feedback;
+  litterbox::ScoopLitterboxResult result;
 
   void preemptCB(){
-    // TODO: Need much smarter post cancel behavior to put
-    //       the robot back in a known state
     ROS_INFO("Scoop litterbox preempted");
-    if(torsoClient->getState() == actionlib::SimpleClientGoalState::ACTIVE){
-      torsoClient->cancelGoal();
-    }
-
-    if(pointHeadClient->getState() == actionlib::SimpleClientGoalState::ACTIVE){
-      pointHeadClient->cancelGoal();
-    }
-    
-    if(rightArmClient->getState() == actionlib::SimpleClientGoalState::ACTIVE){
-      rightArmClient->cancelGoal();
-    }
-    
     as.setPreempted();
   }
 
@@ -110,20 +86,17 @@ private:
     
     // TODO: Use full pose from this result instead of just position.
     geometry_msgs::Pose lbPose = pose;
-    ROS_INFO("LB Pose Frame: %s Centroid frame: %s", frameId.c_str(), dimensions.centroid.header.frame_id.c_str());
     tf.waitForTransform(dimensions.centroid.header.frame_id, frameId, dimensions.centroid.header.stamp, ros::Duration(10.0));
 
     geometry_msgs::PointStamped lbPointInBaseFrame;
     tf.transformPoint(frameId, dimensions.centroid, lbPointInBaseFrame);
 
     lbPose.position = lbPointInBaseFrame.point;
-    ROS_INFO("Estimated position: %f %f %f. Updated position of litterbox at %f %f %f", pose.position.x, pose.position.y, pose.position.z, lbPose.position.x, lbPose.position.y, lbPose.position.z);
     obj.poses.push_back(lbPose);
-
-    obj.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD;
-    
+    obj.operation.operation = arm_navigation_msgs::CollisionObjectOperation::ADD; 
     return obj;
   }
+
   /**
    * Main function to scoop the litterbox.
    */
@@ -134,6 +107,7 @@ private:
       ROS_INFO("Scoop litterbox cancelled prior to start");
       return;
     }
+
     torsoDown();
     
     if(as.isPreemptRequested() || !ros::ok()){
@@ -146,18 +120,21 @@ private:
     geometry_msgs::Point litterboxGuess = goal->target.pose.position;
     litterboxGuess.x += 0.25;
     pointHeadAt(litterboxGuess, goal->target.header.frame_id);
-    
+ 
     if(as.isPreemptRequested() || !ros::ok()){
       as.setPreempted();
       return;
     }
-   
+
     const Dimensions dim = determineLBDimensions();
-   
+ 
     // Setup the planning scene object that we'll need later.
     arm_navigation_msgs::CollisionObject collisionObject = makeCollisionObject(goal->target.pose, goal->target.header.frame_id, dim);
 
-    moveArmOverLitterbox(goal->target.pose.position, dim, collisionObject);
+    // Initialize the client. Do not store it as a member variable to prevent the listener from being active
+    // for longer than necessary.
+    auto_ptr<MoveArmClient> rightArmClient = initClient<MoveArmClient>("move_right_arm");
+    moveArmOverLitterbox(goal->target.pose.position, dim, collisionObject, rightArmClient.get());
     
     if(as.isPreemptRequested() || !ros::ok()){
       as.setPreempted();
@@ -167,17 +144,17 @@ private:
     // Do not pre-empty after this point because the robot
     // may have already scooped and we need to reset the arm
     // to a valid position for moving.
-    performScoop(goal->target.pose.position, dim, collisionObject);
+    performScoop(goal->target.pose.position, dim, collisionObject, rightArmClient.get());
    
-    moveArmOverLitterbox(goal->target.pose.position, dim, collisionObject);
+    moveArmOverLitterbox(goal->target.pose.position, dim, collisionObject, rightArmClient.get());
     
-    moveArmToCarryingPosition(collisionObject);
+    moveArmToCarryingPosition(collisionObject, rightArmClient.get());
      
     ROS_INFO("Litterbox cleaned successfully");
     as.setSucceeded(result);
   }
 
-  void moveArmToCarryingPosition(const arm_navigation_msgs::CollisionObject& collisionObject){
+  void moveArmToCarryingPosition(const arm_navigation_msgs::CollisionObject& collisionObject, MoveArmClient* rightArmClient){
     ROS_INFO("Moving arm to carrying position");
 
     geometry_msgs::PointStamped carryPosition;
@@ -190,7 +167,7 @@ private:
     geometry_msgs::PointStamped carryPositionInWristFrame;
     tf.waitForTransform(carryPosition.header.frame_id, "r_wrist_roll_link", carryPosition.header.stamp, ros::Duration(10.0));
     tf.transformPoint("r_wrist_roll_link", carryPosition, carryPositionInWristFrame);
-    moveRightArm(carryPositionInWristFrame.point, identityOrientation(), "r_wrist_roll_link", collisionObject, false);
+    moveRightArm(carryPositionInWristFrame.point, identityOrientation(), "r_wrist_roll_link", collisionObject, false, rightArmClient);
   }
 
   Dimensions determineLBDimensions() {
@@ -217,6 +194,7 @@ private:
    */
   void pointHeadAt(const geometry_msgs::Point point, const string& frameId){
     ROS_INFO("Pointing head");
+    auto_ptr<PointHeadClient> pointHeadClient = initClient<PointHeadClient>("/head_traj_controller/point_head_action");
     pr2_controllers_msgs::PointHeadGoal goal;
 
     goal.target.point = point;
@@ -231,6 +209,7 @@ private:
    */
   void torsoDown(){
     ROS_INFO("Lowering the torso");
+    auto_ptr<TorsoClient> torsoClient = initClient<TorsoClient>("torso_controller/position_joint_action");
     pr2_controllers_msgs::SingleJointPositionGoal down;
     down.position = 0.01;
     down.min_duration = ros::Duration(2.0);
@@ -243,14 +222,14 @@ private:
   /**
    * Perform the scoop of the litterbox
    */
-  bool performScoop(const geometry_msgs::Point point, const Dimensions& dim, const arm_navigation_msgs::CollisionObject& collisionObject){
+  bool performScoop(const geometry_msgs::Point point, const Dimensions& dim, const arm_navigation_msgs::CollisionObject& collisionObject, MoveArmClient* rightArmClient){
 
     ROS_INFO("Litterbox base position is %f %f %f", point.x, point.y, point.z);
     
     ROS_INFO("Moving to the back of the litterbox");
     geometry_msgs::Point backPosition;
     backPosition.x = -0.10; // TODO: Calculate this as the base of the triangle
-    moveRightArm(backPosition, identityOrientation(), "r_wrist_roll_link", collisionObject, false);
+    moveRightArm(backPosition, identityOrientation(), "r_wrist_roll_link", collisionObject, false, rightArmClient);
     
     // Move to a random horizontal position.
     geometry_msgs::Point horizPosition;
@@ -268,12 +247,12 @@ private:
     horizPosition.z = horizontal;
 
     ROS_INFO("Adjusting horizontal by random %f", horizontal);
-    moveRightArm(horizPosition, identityOrientation(), "r_wrist_roll_link", collisionObject, false);
+    moveRightArm(horizPosition, identityOrientation(), "r_wrist_roll_link", collisionObject, false, rightArmClient);
     
     // Now lower the scoop.
     geometry_msgs::Point noMove;
     ROS_INFO("Lowering scoop");
-    moveRightArm(noMove, verticalDownOrientation(), "r_wrist_roll_link", collisionObject, false);
+    moveRightArm(noMove, verticalDownOrientation(), "r_wrist_roll_link", collisionObject, false, rightArmClient);
     
     // Now scoop
     ROS_INFO("Scooping");
@@ -295,10 +274,10 @@ private:
     scoopMove.header.frame_id = "torso_lift_link";
     scoopMove.header.stamp = wristPosition.header.stamp;
     tf.transformPoint("r_wrist_roll_link", scoopMove, scoopMoveInWristFrame);
-    moveRightArm(scoopMoveInWristFrame.point, identityOrientation(), "r_wrist_roll_link", collisionObject, false);
+    moveRightArm(scoopMoveInWristFrame.point, identityOrientation(), "r_wrist_roll_link", collisionObject, false, rightArmClient);
 
     // Now pick the scoop up.
-    moveRightArm(noMove, invVerticalDownOrientation(), "r_wrist_roll_link", collisionObject, false);
+    moveRightArm(noMove, invVerticalDownOrientation(), "r_wrist_roll_link", collisionObject, false, rightArmClient);
     ROS_INFO("Scoop complete");
     return true;
   }
@@ -307,7 +286,7 @@ private:
   /**
    * Move the arm over the litterbox 
    */
-  void moveArmOverLitterbox(const geometry_msgs::Point& point, const Dimensions& dim, const arm_navigation_msgs::CollisionObject& collisionObject){
+  void moveArmOverLitterbox(const geometry_msgs::Point& point, const Dimensions& dim, const arm_navigation_msgs::CollisionObject& collisionObject, MoveArmClient* rightArmClient){
     ROS_INFO("Moving arm over litterbox");
 
     // Center the arm over the litterbox 0.5 meters above the ground. Point should be the center point of the front
@@ -318,7 +297,7 @@ private:
     overLitterboxPoint.x = overLitterboxPoint.x - SCOOP_LENGTH + (dim.depth / 2.0) - TORSO_TO_FRONT;
     // Leave y as its the center of the litterbox.
     overLitterboxPoint.z = -0.435;
-    moveRightArm(overLitterboxPoint, verticalOrientation(), "/torso_lift_link", collisionObject, false);
+    moveRightArm(overLitterboxPoint, verticalOrientation(), "/torso_lift_link", collisionObject, false, rightArmClient);
     ROS_INFO("Move arm complete");
   }
 
@@ -328,7 +307,7 @@ private:
    * @param orientation Orientation to move the arm to
    * @param referenceFrame Frame the movement is relative to
    */
-  bool moveRightArm(const geometry_msgs::Point& position, const geometry_msgs::Quaternion& orientation, const string& referenceFrame, const arm_navigation_msgs::CollisionObject& collisionObject, bool constrainOrientation){
+  bool moveRightArm(const geometry_msgs::Point& position, const geometry_msgs::Quaternion& orientation, const string& referenceFrame, const arm_navigation_msgs::CollisionObject& collisionObject, bool constrainOrientation, MoveArmClient* rightArmClient){
      ROS_INFO("Moving to position %f %f %f in frame %s", position.x, position.y, position.z, referenceFrame.c_str());
      arm_navigation_msgs::MoveArmGoal goal;
      goal.motion_plan_request.group_name = "right_arm";
