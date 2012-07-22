@@ -121,18 +121,31 @@ class ObjectDetector {
       normalInImageFrame.header.frame_id = "wide_stereo_optical_frame";
       normalInImageFrame.header.stamp = depthPointsMsg->header.stamp;
 
-      // Calculate the yaw in the world frame to ensure the z axis remains
-      // vertical in the yaw calculation step.
-      ros::Duration timeout(10.0);
-      tf.waitForTransform("wide_stereo_optical_frame", "map", depthPointsMsg->header.stamp, timeout);
+      // Calculate the yaw in the base footprint frame to ensure the z axis remains vertical in the yaw calculation step.
+      tf.waitForTransform("wide_stereo_optical_frame", "/base_footprint", depthPointsMsg->header.stamp, ros::Duration(10.0));
 
       geometry_msgs::Vector3Stamped normalStamped;
-      tf.transformVector("/map", normalInImageFrame, normalStamped);
+      tf.transformVector("/base_footprint", normalInImageFrame, normalStamped);
       
       double yaw = atan(normalStamped.vector.x / -normalStamped.vector.y);
       yaw += boost::math::constants::pi<double>() / 2.0;
+      
+      // Ensure the yaw is the same direction as the robot.
+      if(yaw < -boost::math::constants::pi<double>() / 2.0){
+        yaw += boost::math::constants::pi<double>();
+      } else if (yaw > boost::math::constants::pi<double>() / 2.0){
+        yaw -= boost::math::constants::pi<double>();
+      }
 
-      geometry_msgs::Quaternion q = tf::createQuaternionMsgFromRollPitchYaw(0, 0, yaw);
+      geometry_msgs::QuaternionStamped qInBaseFootprint;
+      qInBaseFootprint.header.frame_id = "base_footprint";
+      qInBaseFootprint.header.stamp = depthPointsMsg->header.stamp;
+      qInBaseFootprint.quaternion = tf::createQuaternionMsgFromRollPitchYaw(0, 0, yaw);
+
+      // Convert orientation to map frame.
+      tf.waitForTransform(qInBaseFootprint.header.frame_id, "map", qInBaseFootprint.header.stamp, ros::Duration(10));
+      geometry_msgs::QuaternionStamped q;
+      tf.transformQuaternion("map", qInBaseFootprint, q);
 
       // Convert the centroid and quaternion to a PoseStamped
       geometry_msgs::PoseStamped resultPose;
@@ -149,7 +162,7 @@ class ObjectDetector {
       resultPoseMap.header.frame_id = "/map";
       resultPoseMap.header.stamp = depthPointsMsg->header.stamp;
       tf.transformPose("/map", resultPose, resultPoseMap);
-      resultPoseMap.pose.orientation = q;
+      resultPoseMap.pose.orientation = q.quaternion;
 
       // Broadcast the result
       pub.publish(resultPoseMap);

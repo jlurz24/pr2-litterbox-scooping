@@ -87,11 +87,6 @@ class OctomapUpdater {
       mCMapPub = mNH.advertise<arm_navigation_msgs::CollisionMap>("collision_map_out", 1, true);
       mPointCloudPub = mNH.advertise<sensor_msgs::PointCloud2>("point_cloud_out", 1, true);
 
-      // Setup a mDisplayTimer to display updates.
-      double publishInterval;
-      mPNH.param<double>("publish_interval", publishInterval, 0.2);
-      mDisplayTimer = mNH.createTimer(ros::Duration(publishInterval), &OctomapUpdater::publishUpdates, this);
-      
       ROS_INFO("Initialization complete of OctomapUpdater");
     }
  
@@ -128,6 +123,8 @@ class OctomapUpdater {
 
       ros::WallTime endInsertTime = ros::WallTime::now();
       ROS_INFO("Insert scan took %f seconds", (endInsertTime - endTransformTime).toSec());
+
+      publishUpdates();
   }
   
   /**
@@ -139,9 +136,9 @@ class OctomapUpdater {
   }
  
   /*
-   * Callback fired from a timer thread to publish updates to the display.
+   * Publish updates
    */
-  void publishUpdates(const ros::TimerEvent& aEvent) const {
+  void publishUpdates() const {
       std_msgs::Header header;
       header.frame_id = mFixedFrame;
       header.stamp = ros::Time::now();

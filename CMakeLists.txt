@@ -40,4 +40,7 @@ rosbuild_add_executable(move_left_arm_away src/move_left_arm_away.cpp)
 rosbuild_add_executable(move_right_arm_away src/move_right_arm_away.cpp)
 rosbuild_add_executable(octomap_server src/octomap_server.cpp)
 rosbuild_add_executable(laserscan_to_pointcloud src/laserscan_to_pointcloud.cpp)
+rosbuild_add_executable(count_pixels src/count_pixels.cpp)
+rosbuild_add_executable(pixel_occupied src/pixel_occupied.cpp)
 target_link_libraries(insert_scooper tinyxml)
+

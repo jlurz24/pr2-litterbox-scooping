@@ -5,7 +5,7 @@
   <!-- Turn on for non-gslam mapping -->
   <include file="$(find pr2_navigation_global)/amcl_node.xml" />
   <!-- <include file="$(find pr2_navigation_slam)/slam_gmapping.xml" /> -->
-  <include file="$(find pr2_navigation_teleop)/teleop.xml" />
+  <!-- <include file="$(find pr2_navigation_teleop)/teleop.xml" /> -->
   <include file="$(find pr2_navigation_perception)/lasers_and_filters.xml" />
   <include file="$(find pr2_navigation_perception)/ground_plane.xml" />
   
@@ -17,7 +17,9 @@
  <!-- <include file="$(find litterbox)/launch/mapping_server.launch"/> -->
   <!-- Arm navigation -->
   <include file="$(find pr2_3dnav)/right_arm_navigation.launch" />
-  
+
+  <!-- Override resolution for testing. -->
+  <param name="/collider_node/resolution" value="0.1"/>  
   <!-- tuckarm action -->
   <!-- For robot when not running nav stack -->
   <!--  <node pkg="pr2_tuck_arms_action" type="tuck_arms.py" name="tuck_arms_action" output="screen">

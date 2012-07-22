@@ -85,8 +85,8 @@ public:
     geometry_msgs::PoseStamped trashPose = goal->target;
     // Move arm slightly back due to length of scoop.
     // TODO: Make this smarter
-    // trashPose.pose.position.x -= 0.3;
-    trashPose.pose.position.z = 0.4; // TODO: Assumes trashcan height and target frame
+    trashPose.pose.position.x -= 0.3;
+    trashPose.pose.position.z = 0.7; // TODO: Assumes trashcan height and target frame
 
     geometry_msgs::PoseStamped trashInWristFrame;
     tf.waitForTransform(trashPose.header.frame_id, "r_wrist_roll_link", trashPose.header.stamp, ros::Duration(10.0));

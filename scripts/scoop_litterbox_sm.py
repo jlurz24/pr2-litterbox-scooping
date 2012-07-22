@@ -40,23 +40,13 @@ def broadcast_timer_callback(event):
 def broadcast_transform(name, pose):
   transforms[name] = pose
 
-def correct_direction(orientation):
-  # Ensure the sign of the orientation is correct.
-  roll, pitch, yaw = tf.transformations.euler_from_quaternion(msg_to_quaternion(orientation))
-  if yaw < -math.pi / 2:
-    yaw += math.pi
-  if yaw > math.pi / 2:
-    yaw -= math.pi
-
-  return quaternion_to_msg(tf.transformations.quaternion_from_euler(roll, pitch, yaw))
-
 def main():
     rospy.loginfo("Starting the state machine");
 
     rospy.init_node('scoop_litterbox_state_machine')
 
     # Start a timer loop for broadcasting transforms
-    rospy.Timer(rospy.Duration(1.0), broadcast_timer_callback)
+    rospy.Timer(rospy.Duration(0.25), broadcast_timer_callback)
 
     # Create a SMACH state machine
     sm = smach.StateMachine(outcomes=['success', 'failure'])
@@ -75,18 +65,8 @@ def main():
           goal = MoveToPositionGoal()
           userdata.litterbox_pose.header.stamp = rospy.Time.now()
 
-          # Switch to the robot frame to resolve the directionality of the
-          # litterbox 
-          tl.waitForTransform("/torso_lift_link", userdata.litterbox_pose.header.frame_id, userdata.litterbox_pose.header.stamp, rospy.Duration(10.0))
-          lbPoseInRobotFrame = tl.transformPose("/torso_lift_link", userdata.litterbox_pose)
-          lbPoseInRobotFrame.pose.orientation = correct_direction(lbPoseInRobotFrame.pose.orientation)
-
-          # Switch back to map frame.
-          tl.waitForTransform("/torso_lift_link", lbPoseInRobotFrame.header.frame_id, lbPoseInRobotFrame.header.stamp, rospy.Duration(10.0))
-          lbPoseInMapFrame = tl.transformPose("/map", lbPoseInRobotFrame)
-
           # Broadcast the pose as the litterbox_frame
-          broadcast_transform('litterbox_frame', lbPoseInMapFrame)
+          broadcast_transform('litterbox_frame', userdata.litterbox_pose)
           
           goalInLBFrame = PoseStamped()
           goalInLBFrame.pose.position.y = 0.65
@@ -135,20 +115,11 @@ def main():
           goal = MoveToPositionGoal()
           userdata.trash_pose.header.stamp = rospy.Time.now()
 
-          # Switch to the robot frame to resolve the direction of the trash
-          tl.waitForTransform("/torso_lift_link", userdata.trash_pose.header.frame_id, userdata.trash_pose.header.stamp, rospy.Duration(10.0))
-          trashPoseInRobotFrame = tl.transformPose("/torso_lift_link", userdata.trash_pose)
-          trashPoseInRobotFrame.pose.orientation = correct_direction(trashPoseInRobotFrame.pose.orientation)
-          rospy.loginfo("Litterbox is at x: %f y: %f in robot frame", trashPoseInRobotFrame.pose.position.x, trashPoseInRobotFrame.pose.position.y)
-          # Switch back to map frame.
-          tl.waitForTransform("/torso_lift_link", trashPoseInRobotFrame.header.frame_id, trashPoseInRobotFrame.header.stamp, rospy.Duration(10.0))
-          trashPoseInMapFrame = tl.transformPose("/map", trashPoseInRobotFrame)
-
           # Broadcast the pose as the trash_frame
-          broadcast_transform('trash_frame', trashPoseInMapFrame)
+          broadcast_transform('trash_frame', userdata.trash_pose)
          
           goalInTrashFrame = PoseStamped()
-          goalInTrashFrame.pose.position.y = -0.75
+          goalInTrashFrame.pose.position.y = 0
           goalInTrashFrame.pose.position.x = -0.75
           goalInTrashFrame.pose.position.z = 0
           goalInTrashFrame.pose.orientation.x = 0
@@ -178,7 +149,7 @@ def main():
           return False
 
         def detect_scooper_attached_cb(userdata, msg):
-            rospy.sleep(1.0) # HACK to work around preemption prior to the action firing 
+            rospy.sleep(1.0)
             return msg.attached
 
         def scoop_litterbox_cb(userdata, goal):
@@ -281,9 +252,16 @@ def main():
                                FaceTargetAction,
                                goal_cb=face_lb_cb,
                                input_keys=['litterbox_pose']),
-                               transitions={'succeeded':'MOVE_TO_LITTERBOX',
+                               transitions={'succeeded':'DETECT_LITTERBOX_FINAL',
                                             'preempted':'FACE_LITTERBOX',
                                             'aborted': 'FACE_LITTERBOX'})
+
+        smach.StateMachine.add('DETECT_LITTERBOX_FINAL',
+                                MonitorState('object_location/Litterbox',
+                                             PoseStamped, detect_litterbox_cb),
+                                transitions={'invalid':'MOVE_TO_LITTERBOX',
+                                             'valid': 'CON_DETECT_LITTERBOX',
+                                             'preempted': 'DETECT_LITTERBOX_FINAL'})
 
         sm_con_move_to_litterbox = smach.Concurrence(
           input_keys=['litterbox_pose'],
@@ -383,9 +361,16 @@ def main():
                                FaceTargetAction,
                                goal_cb=face_trash_cb,
                                input_keys=['trash_pose']),
-                               transitions={'succeeded':'MOVE_TO_TRASH',
+                               transitions={'succeeded':'DETECT_TRASH_FINAL',
                                             'preempted':'FACE_TRASH',
                                             'aborted': 'FACE_TRASH'})
+
+        smach.StateMachine.add('DETECT_TRASH_FINAL',
+                                MonitorState('object_location/Trash',
+                                             PoseStamped, detect_trash_cb),
+                                transitions={'invalid':'MOVE_TO_TRASH',
+                                             'valid': 'CON_DETECT_TRASH',
+                                             'preempted': 'DETECT_TRASH_FINAL'})
 
         smach.StateMachine.add('MOVE_TO_TRASH',
                                SimpleActionState('move_to_position',
