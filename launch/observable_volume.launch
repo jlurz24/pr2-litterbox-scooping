@@ -1,0 +1,13 @@
+<launch>
+  <node pkg="litterbox" type="observable_volume" name="observable_volume" respawn="false" output="screen" cwd="ROS_HOME">
+    <param name="reference_frame" value="odom_combined"/>
+    <param name="resolution" value="0.1"/>
+    <param name="object_name" value="box1"/>
+    <param name="object_width" value="2.0"/>
+    <param name="object_depth" value="0.5"/>
+    <param name="object_height" value="1.5"/>
+  </node>
+
+  <node pkg="costmap_2d" type="costmap_2d_markers" name="voxel_visualizer"> <remap from="voxel_grid" to="/move_base_node/local_costmap/voxel_grid"/> </node>
+</launch>
+

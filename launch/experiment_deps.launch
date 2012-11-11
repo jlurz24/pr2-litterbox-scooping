@@ -4,17 +4,13 @@
   <!-- Navigation stack -->
   <!-- Turn on for non-gslam mapping -->
   <include file="$(find pr2_navigation_global)/amcl_node.xml" />
-  <!-- <include file="$(find pr2_navigation_slam)/slam_gmapping.xml" /> -->
-  <!-- <include file="$(find pr2_navigation_teleop)/teleop.xml" /> -->
   <include file="$(find pr2_navigation_perception)/lasers_and_filters.xml" />
   <include file="$(find pr2_navigation_perception)/ground_plane.xml" />
   
   <include file="$(find pr2_navigation_global)/move_base.xml" />
   
-  <!-- Turn on for non-gslam mapping -->
   <node name="map_server" pkg="map_server" type="map_server" args="$(find gazebo_worlds)/Media/materials/textures/map_blank.png 0.1" respawn="true" />
 
- <!-- <include file="$(find litterbox)/launch/mapping_server.launch"/> -->
   <!-- Arm navigation -->
   <include file="$(find pr2_3dnav)/right_arm_navigation.launch" />
 
@@ -23,23 +19,10 @@
   <param name="/move_base_node/local_costmap/update_frequency" value="10"/>
   <!-- Override resolution for testing. -->
   <param name="/collider_node/resolution" value="0.1"/>  
-  <!-- tuckarm action -->
-  <!-- For robot when not running nav stack -->
-  <!--  <node pkg="pr2_tuck_arms_action" type="tuck_arms.py" name="tuck_arms_action" output="screen">
-    <param name="r_joint_trajectory_action" value="r_arm_controller/joint_trajectory_generator" />
-    <param name="l_joint_trajectory_action" value="l_arm_controller/joint_trajectory_generator" />
-    <param name="move_duration" value="0.0" />
-  </node>
-  -->
 
   <!-- Move left arm away -->
   <node name="move_left_arm_away" pkg="litterbox" type="move_left_arm_away" respawn="false" output="screen" />
   
   <!-- Move right arm away -->
   <node name="move_right_arm_away" pkg="litterbox" type="move_right_arm_away" respawn="false" output="screen" />
-  
-  <param name="cmvision/color_file" type="string" value="$(find litterbox)/colors.txt"/>
-
-  <include file="$(find cmvision)/cmvision.launch"/>
-
 </launch>

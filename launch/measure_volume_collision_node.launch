@@ -1,16 +1,12 @@
 <launch>
-  <node pkg="litterbox" type="pixel_occupied" name="pixel_occupied" respawn="false" output="screen" cwd="ROS_HOME">
-    <param name="reference_x" value="1" />
-    <param name="reference_y" value="0.075"/>
-    <param name="unoccupied_mode" value="true"/>
-    <param name="model_name" value="box1"/>
-    <param name="reference_frame" value="odom_combined"/>
-    <param name="min_height" value="0.2"/>
+  <include file="$(find litterbox)/launch/experiment_deps.launch" />
+
+  <node pkg="litterbox" type="count_pixels" name="count_pixels" respawn="false" output="screen" cwd="ROS_HOME">
     <param name="input_type" value="collision"/>
+    <param name="actual_volume" value="0.32"/>
     <!--<remap from="collision_map_in" to="octomap_collision_map" />-->
     <remap from="collision_map_in" to="collision_map_occ"/>
     <remap from="voxel_grid_in" to="/move_base_node/local_costmap/voxel_grid"/>
-    
   </node>
 
   <node pkg="costmap_2d" type="costmap_2d_markers" name="voxel_visualizer"> <remap from="voxel_grid" to="/move_base_node/local_costmap/voxel_grid"/> </node>
