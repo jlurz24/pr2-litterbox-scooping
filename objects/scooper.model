@@ -48,6 +48,6 @@
           <mesh>unit_box</mesh>
         </visual>
       </geom:box>
-    </body:box>
+    </body:cylinder>
 </model:physical>
 

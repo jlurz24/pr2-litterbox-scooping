@@ -1,241 +1,210 @@
-<?xml version="1.0" ?>
-<model:physical xmlns:gazebo="http://playerstage.sourceforge.net/gazebo/xmlschema/#gz" xmlns:model="http://playerstage.sourceforge.net/gazebo/xmlschema/#model" xmlns:sensor="http://playerstage.sourceforge.net/gazebo/xmlschema/#sensor" xmlns:body="http://playerstage.sourceforge.net/gazebo/xmlschema/#body" xmlns:geom="http://playerstage.sourceforge.net/gazebo/xmlschema/#geom" xmlns:joint="http://playerstage.sourceforge.net/gazebo/xmlschema/#joint" xmlns:controller="http://playerstage.sourceforge.net/gazebo/xmlschema/#controller" xmlns:interface="http://playerstage.sourceforge.net/gazebo/xmlschema/#interface" xmlns:rendering="http://playerstage.sourceforge.net/gazebo/xmlschema/#rendering" xmlns:physics="http://playerstage.sourceforge.net/gazebo/xmlschema/#physics" name="trashcan_model">
-    <xyz>0 0 0</xyz>
-    <rpy>0 0 0</rpy>
-    <body:box name="trashcan">
-        <kp>100000000.0</kp>
-        <kd>1.0</kd>
-        <xyz>2.2 -2.5 0.01</xyz>
-        <rpy>0 0 0</rpy>
-        <massMatrix>true</massMatrix>
-        <mass>1.0</mass>
-        <ixx>1.0</ixx>
-        <ixy>0</ixy>
-        <ixz>0</ixz>
-        <iyy>1.0</iyy>
-        <iyz>0</iyz>
-        <izz>1.0</izz>
-        <cx>0</cx>
-        <cy>0</cy>
-        <cz>0</cz>
-        <geom:box name="trashcan_base_geom">
-            <kp>100000000.0</kp>
-            <kd>1.0</kd>
-            <xyz>0 0 0</xyz>
-            <rpy>0 0 0</rpy>
-            <massMatrix>true</massMatrix>
-            <mass>1.0</mass>
-            <ixx>1.0</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>1.0</iyy>
-            <iyz>0</iyz>
-            <izz>1.0</izz>
-            <cx>0</cx>
-            <cy>0</cy>
-            <cz>0</cz>
-            <size>0.3 0.3 0.01</size>
-            <visual>
-                <xyz>0 0 0</xyz>
-                <rpy>0 0 0</rpy>
-                <scale>0.3 0.3 0.01</scale>
-                <mesh>unit_box</mesh>
-                <material>Gazebo/White</material>
-            </visual>
-        </geom:box>
-
-        <geom:box name="trashcan_left_geom">
-            <kp>100000000.0</kp>
-            <kd>1.0</kd>
-            <xyz>0 -0.15 0.01</xyz>
-            <size>0.3 0.01 0.3</size>
-            <massMatrix>true</massMatrix>
-            <mass>1.0</mass>
-            <ixx>1.0</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>1.0</iyy>
-            <iyz>0</iyz>
-            <izz>1.0</izz>
-            <cx>0</cx>
-            <cy>0</cy>
-            <cz>0</cz>
-            <visual>
-                <xyz>0 0 0</xyz>
-                <rpy>0 0 0</rpy>
-                <scale>0.3 0.01 0.3</scale>
-                <mesh>unit_box</mesh>
-                <material>Gazebo/Red</material>
-            </visual>
-        </geom:box>
-        <geom:box name="trashcan_left_in_geom">
-            <kp>100000000.0</kp>
-            <kd>1.0</kd>
-            <xyz>0 -0.14 0.01</xyz>
-            <size>0.3 0.01 0.3</size>
-            <massMatrix>true</massMatrix>
-            <mass>1.0</mass>
-            <ixx>1.0</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>1.0</iyy>
-            <iyz>0</iyz>
-            <izz>1.0</izz>
-            <cx>0</cx>
-            <cy>0</cy>
-            <cz>0</cz>
-            <visual>
-                <xyz>0 0 0</xyz>
-                <rpy>0 0 0</rpy>
-                <scale>0.3 0.01 0.3</scale>
-                <mesh>unit_box</mesh>
-                <material>Gazebo/White</material>
-            </visual>
-        </geom:box>
-        <geom:box name="trashcan_right_geom">
-            <kp>100000000.0</kp>
-            <kd>1.0</kd>
-            <xyz>0 0.15 0.01</xyz>
-            <size>0.3 0.01 0.3</size>
-            <massMatrix>true</massMatrix>
-            <mass>1.0</mass>
-            <ixx>1.0</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>1.0</iyy>
-            <iyz>0</iyz>
-            <izz>1.0</izz>
-            <cx>0</cx>
-            <cy>0</cy>
-            <cz>0</cz>
-            <visual>
-                <xyz>0 0 0</xyz>
-                <rpy>0 0 0</rpy>
-                <scale>0.3 0.01 0.3</scale>
-                <mesh>unit_box</mesh>
-                <material>Gazebo/Red</material>
-            </visual>
-        </geom:box>
-         <geom:box name="trashcan_right_in_geom">
-            <kp>100000000.0</kp>
-            <kd>1.0</kd>
-            <xyz>0 0.14 0.01</xyz>
-            <size>0.3 0.01 0.3</size>
-            <massMatrix>true</massMatrix>
-            <mass>1.0</mass>
-            <ixx>1.0</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>1.0</iyy>
-            <iyz>0</iyz>
-            <izz>1.0</izz>
-            <cx>0</cx>
-            <cy>0</cy>
-            <cz>0</cz>
-            <visual>
-                <xyz>0 0 0</xyz>
-                <rpy>0 0 0</rpy>
-                <scale>0.3 0.01 0.3</scale>
-                <mesh>unit_box</mesh>
-                <material>Gazebo/White</material>
-            </visual>
-        </geom:box>
-        <geom:box name="trashcan_back_geom">
-            <kp>100000000.0</kp>
-            <kd>1.0</kd>
-            <xyz>-0.15 0 0.01</xyz>
-            <size>0.01 0.3 0.3</size>
-            <massMatrix>true</massMatrix>
-            <mass>1.0</mass>
-            <ixx>1.0</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>1.0</iyy>
-            <iyz>0</iyz>
-            <izz>1.0</izz>
-            <cx>0</cx>
-            <cy>0</cy>
-            <cz>0</cz>
-            <visual>
-                <xyz>0 0 0</xyz>
-                <rpy>0 0 0</rpy>
-                <scale>0.01 0.3 0.3</scale>
-                <mesh>unit_box</mesh>
-                <material>Gazebo/Red</material>
-            </visual>
-        </geom:box>
-        <geom:box name="trashcan_back_in_geom">
-            <kp>100000000.0</kp>
-            <kd>1.0</kd>
-            <xyz>-0.14 0 0.01</xyz>
-            <size>0.01 0.3 0.3</size>
-            <massMatrix>true</massMatrix>
-            <mass>1.0</mass>
-            <ixx>1.0</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>1.0</iyy>
-            <iyz>0</iyz>
-            <izz>1.0</izz>
-            <cx>0</cx>
-            <cy>0</cy>
-            <cz>0</cz>
-            <visual>
-                <xyz>0 0 0</xyz>
-                <rpy>0 0 0</rpy>
-                <scale>0.01 0.3 0.3</scale>
-                <mesh>unit_box</mesh>
-                <material>Gazebo/White</material>
-            </visual>
-        </geom:box>
-        <geom:box name="trash_front_geom">
-            <kp>100000000.0</kp>
-            <kd>1.0</kd>
-            <xyz>0.15 0 0.01</xyz>
-            <size>0.01 0.3 0.3</size>
-            <massMatrix>true</massMatrix>
-            <mass>1.0</mass>
-            <ixx>1.0</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>1.0</iyy>
-            <iyz>0</iyz>
-            <izz>1.0</izz>
-            <cx>0</cx>
-            <cy>0</cy>
-            <cz>0</cz>
-            <visual>
-                <xyz>0 0 0</xyz>
-                <rpy>0 0 0</rpy>
-                <scale>0.01 0.3 0.3</scale>
-                <mesh>unit_box</mesh>
-                <material>Gazebo/Red</material>
-            </visual>
-        </geom:box>
-        <geom:box name="trash_front_geom_in">
-            <kp>100000000.0</kp>
-            <kd>1.0</kd>
-            <xyz>0.14 0 0.01</xyz>
-            <size>0.01 0.3 0.3</size>
-            <massMatrix>true</massMatrix>
-            <mass>1.0</mass>
-            <ixx>1.0</ixx>
-            <ixy>0</ixy>
-            <ixz>0</ixz>
-            <iyy>1.0</iyy>
-            <iyz>0</iyz>
-            <izz>1.0</izz>
-            <cx>0</cx>
-            <cy>0</cy>
-            <cz>0</cz>
-            <visual>
-                <xyz>0 0 0</xyz>
-                <rpy>0 0 0</rpy>
-                <scale>0.01 0.3 0.3</scale>
-                <mesh>unit_box</mesh>
-                <material>Gazebo/White</material>
-            </visual>
-        </geom:box>
-    </body:box>
-</model:physical>
-
+<gazebo version='1.0'>
+  <model name='trashcan_model' static='0'>
+    <origin pose='0.000000 0.000000 0.000000 0.000000 -0.000000 0.000000'/>
+    <link name='trashcan' gravity='1' self_collide='0' kinematic='0'>
+      <origin pose='2.200000 -2.500000 0.010000 0.000000 -0.000000 0.000000'/>
+      <inertial mass='1.000000' density='1.000000'>
+        <origin pose='0.000000 0.000000 0.000000 0.000000 -0.000000 0.000000'/>
+        <inertia ixx='1.000000' ixy='0.000000' ixz='0.000000' iyy='1.000000' iyz='0.000000' izz='1.000000'/>
+      </inertial>
+      <collision name='trashcan_base_geom' laser_retro='0.000000'>
+        <origin pose='0.000000 0.000000 0.000000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.300000 0.300000 0.010000'/>
+        </geometry>
+        <surface>
+          <friction>
+            <ode mu='-1.000000' mu2='-1.000000' fdir1='0.000000 0.000000 0.000000' slip1='0.000000' slip2='0.000000'/>
+          </friction>
+          <bounce restitution_coefficient='0.000000' threshold='100000.000000'/>
+          <contact>
+            <ode soft_cfm='0.000000' soft_erp='0.200000' kp='100000000.000000' kd='1.000000' max_vel='100.000000' min_depth='0.001000'/>
+          </contact>
+        </surface>
+      </collision>
+      <visual name='trashcan_base_geom_visual' cast_shadows='1' laser_retro='0.000000' transparency='0.000000'>
+        <origin pose='0.000000 0.000000 0.000000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.300000 0.300000 0.010000'/>
+        </geometry>
+        <material script='Gazebo/White'/>
+      </visual>
+      <collision name='trashcan_left_geom' laser_retro='0.000000'>
+        <origin pose='0.000000 -0.150000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.300000 0.010000 0.300000'/>
+        </geometry>
+        <surface>
+          <friction>
+            <ode mu='-1.000000' mu2='-1.000000' fdir1='0.000000 0.000000 0.000000' slip1='0.000000' slip2='0.000000'/>
+          </friction>
+          <bounce restitution_coefficient='0.000000' threshold='100000.000000'/>
+          <contact>
+            <ode soft_cfm='0.000000' soft_erp='0.200000' kp='100000000.000000' kd='1.000000' max_vel='100.000000' min_depth='0.001000'/>
+          </contact>
+        </surface>
+      </collision>
+      <visual name='trashcan_left_geom_visual' cast_shadows='1' laser_retro='0.000000' transparency='0.000000'>
+        <origin pose='0.000000 -0.150000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.300000 0.010000 0.300000'/>
+        </geometry>
+        <material script='Gazebo/Red'/>
+      </visual>
+      <collision name='trashcan_left_in_geom' laser_retro='0.000000'>
+        <origin pose='0.000000 -0.140000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.300000 0.010000 0.300000'/>
+        </geometry>
+        <surface>
+          <friction>
+            <ode mu='-1.000000' mu2='-1.000000' fdir1='0.000000 0.000000 0.000000' slip1='0.000000' slip2='0.000000'/>
+          </friction>
+          <bounce restitution_coefficient='0.000000' threshold='100000.000000'/>
+          <contact>
+            <ode soft_cfm='0.000000' soft_erp='0.200000' kp='100000000.000000' kd='1.000000' max_vel='100.000000' min_depth='0.001000'/>
+          </contact>
+        </surface>
+      </collision>
+      <visual name='trashcan_left_in_geom_visual' cast_shadows='1' laser_retro='0.000000' transparency='0.000000'>
+        <origin pose='0.000000 -0.140000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.300000 0.010000 0.300000'/>
+        </geometry>
+        <material script='Gazebo/White'/>
+      </visual>
+      <collision name='trashcan_right_geom' laser_retro='0.000000'>
+        <origin pose='0.000000 0.150000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.300000 0.010000 0.300000'/>
+        </geometry>
+        <surface>
+          <friction>
+            <ode mu='-1.000000' mu2='-1.000000' fdir1='0.000000 0.000000 0.000000' slip1='0.000000' slip2='0.000000'/>
+          </friction>
+          <bounce restitution_coefficient='0.000000' threshold='100000.000000'/>
+          <contact>
+            <ode soft_cfm='0.000000' soft_erp='0.200000' kp='100000000.000000' kd='1.000000' max_vel='100.000000' min_depth='0.001000'/>
+          </contact>
+        </surface>
+      </collision>
+      <visual name='trashcan_right_geom_visual' cast_shadows='1' laser_retro='0.000000' transparency='0.000000'>
+        <origin pose='0.000000 0.150000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.300000 0.010000 0.300000'/>
+        </geometry>
+        <material script='Gazebo/Red'/>
+      </visual>
+      <collision name='trashcan_right_in_geom' laser_retro='0.000000'>
+        <origin pose='0.000000 0.140000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.300000 0.010000 0.300000'/>
+        </geometry>
+        <surface>
+          <friction>
+            <ode mu='-1.000000' mu2='-1.000000' fdir1='0.000000 0.000000 0.000000' slip1='0.000000' slip2='0.000000'/>
+          </friction>
+          <bounce restitution_coefficient='0.000000' threshold='100000.000000'/>
+          <contact>
+            <ode soft_cfm='0.000000' soft_erp='0.200000' kp='100000000.000000' kd='1.000000' max_vel='100.000000' min_depth='0.001000'/>
+          </contact>
+        </surface>
+      </collision>
+      <visual name='trashcan_right_in_geom_visual' cast_shadows='1' laser_retro='0.000000' transparency='0.000000'>
+        <origin pose='0.000000 0.140000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.300000 0.010000 0.300000'/>
+        </geometry>
+        <material script='Gazebo/White'/>
+      </visual>
+      <collision name='trashcan_back_geom' laser_retro='0.000000'>
+        <origin pose='-0.150000 0.000000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.010000 0.300000 0.300000'/>
+        </geometry>
+        <surface>
+          <friction>
+            <ode mu='-1.000000' mu2='-1.000000' fdir1='0.000000 0.000000 0.000000' slip1='0.000000' slip2='0.000000'/>
+          </friction>
+          <bounce restitution_coefficient='0.000000' threshold='100000.000000'/>
+          <contact>
+            <ode soft_cfm='0.000000' soft_erp='0.200000' kp='100000000.000000' kd='1.000000' max_vel='100.000000' min_depth='0.001000'/>
+          </contact>
+        </surface>
+      </collision>
+      <visual name='trashcan_back_geom_visual' cast_shadows='1' laser_retro='0.000000' transparency='0.000000'>
+        <origin pose='-0.150000 0.000000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.010000 0.300000 0.300000'/>
+        </geometry>
+        <material script='Gazebo/Red'/>
+      </visual>
+      <collision name='trashcan_back_in_geom' laser_retro='0.000000'>
+        <origin pose='-0.140000 0.000000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.010000 0.300000 0.300000'/>
+        </geometry>
+        <surface>
+          <friction>
+            <ode mu='-1.000000' mu2='-1.000000' fdir1='0.000000 0.000000 0.000000' slip1='0.000000' slip2='0.000000'/>
+          </friction>
+          <bounce restitution_coefficient='0.000000' threshold='100000.000000'/>
+          <contact>
+            <ode soft_cfm='0.000000' soft_erp='0.200000' kp='100000000.000000' kd='1.000000' max_vel='100.000000' min_depth='0.001000'/>
+          </contact>
+        </surface>
+      </collision>
+      <visual name='trashcan_back_in_geom_visual' cast_shadows='1' laser_retro='0.000000' transparency='0.000000'>
+        <origin pose='-0.140000 0.000000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.010000 0.300000 0.300000'/>
+        </geometry>
+        <material script='Gazebo/White'/>
+      </visual>
+      <collision name='trash_front_geom' laser_retro='0.000000'>
+        <origin pose='0.150000 0.000000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.010000 0.300000 0.300000'/>
+        </geometry>
+        <surface>
+          <friction>
+            <ode mu='-1.000000' mu2='-1.000000' fdir1='0.000000 0.000000 0.000000' slip1='0.000000' slip2='0.000000'/>
+          </friction>
+          <bounce restitution_coefficient='0.000000' threshold='100000.000000'/>
+          <contact>
+            <ode soft_cfm='0.000000' soft_erp='0.200000' kp='100000000.000000' kd='1.000000' max_vel='100.000000' min_depth='0.001000'/>
+          </contact>
+        </surface>
+      </collision>
+      <visual name='trash_front_geom_visual' cast_shadows='1' laser_retro='0.000000' transparency='0.000000'>
+        <origin pose='0.150000 0.000000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.010000 0.300000 0.300000'/>
+        </geometry>
+        <material script='Gazebo/Red'/>
+      </visual>
+      <collision name='trash_front_geom_in' laser_retro='0.000000'>
+        <origin pose='0.140000 0.000000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.010000 0.300000 0.300000'/>
+        </geometry>
+        <surface>
+          <friction>
+            <ode mu='-1.000000' mu2='-1.000000' fdir1='0.000000 0.000000 0.000000' slip1='0.000000' slip2='0.000000'/>
+          </friction>
+          <bounce restitution_coefficient='0.000000' threshold='100000.000000'/>
+          <contact>
+            <ode soft_cfm='0.000000' soft_erp='0.200000' kp='100000000.000000' kd='1.000000' max_vel='100.000000' min_depth='0.001000'/>
+          </contact>
+        </surface>
+      </collision>
+      <visual name='trash_front_geom_in_visual' cast_shadows='1' laser_retro='0.000000' transparency='0.000000'>
+        <origin pose='0.140000 0.000000 0.010000 0.000000 -0.000000 0.000000'/>
+        <geometry>
+          <box size='0.010000 0.300000 0.300000'/>
+        </geometry>
+        <material script='Gazebo/White'/>
+      </visual>
+    </link>
+  </model>
+</gazebo>

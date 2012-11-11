@@ -13,7 +13,7 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <arm_navigation_msgs/CollisionMap.h>
-
+#include <litterbox/Reset.h>
 using namespace std;
 
 typedef octomap::OctomapROS<octomap::OcTreeStamped> OctomapType;
@@ -36,6 +36,7 @@ class OctomapUpdater {
     ros::Publisher mCMapPub;
     ros::Publisher mPointCloudPub;
     ros::Timer mDisplayTimer;
+    ros::ServiceServer resetService;
  public:
     OctomapUpdater() : mPNH("~"){
 
@@ -43,32 +44,13 @@ class OctomapUpdater {
       mPNH.param<std::string>("fixed_id", mFixedFrame, "/odom_combined");
       mPNH.param("degrade_tolerance", mDegradeTolerance, 1.0);
 
-      // Defaults are from octoMap.
-      double occupancyThresh = 0.5;
-      double probHit = 0.8;
-      double probMiss = 0.31;
-      double threshMin = 0.12;
-      double threshMax = 0.95;
-      double resolution = 0.1;
+      initOctomap();
+
       bool useStereo = false;
       bool useLaser = true;
-
-      mPNH.param("sensor_model_occ_thresh", occupancyThresh, occupancyThresh);
-      mPNH.param("sensor_model_hit", probHit, probHit);
-      mPNH.param("sensor_model_miss", probMiss, probMiss);
-      mPNH.param("sensor_model_thresh_min", threshMin, threshMin);
-      mPNH.param("sensor_model_thresh_max", threshMax, threshMax);
-      mPNH.param("resolution", resolution, resolution);
       mPNH.param("use_stereo", useStereo, useStereo);
       mPNH.param("use_laser", useLaser, useLaser);
-
-      mOctoMap.reset(new OctomapType(resolution));
-      mOctoMap->octree.setOccupancyThres(occupancyThresh);
-      mOctoMap->octree.setProbHit(probHit);
-      mOctoMap->octree.setProbMiss(probMiss);
-      mOctoMap->octree.setClampingThresMin(threshMin);
-      mOctoMap->octree.setClampingThresMax(threshMax); 
-
+      
       // List for the depth messages
       if(useStereo){
         std::string imageSensorName = "stereo_cloud_in";
@@ -87,9 +69,43 @@ class OctomapUpdater {
       mCMapPub = mNH.advertise<arm_navigation_msgs::CollisionMap>("collision_map_out", 1, true);
       mPointCloudPub = mNH.advertise<sensor_msgs::PointCloud2>("point_cloud_out", 1, true);
 
+      // Register the reset service
+      resetService = mPNH.advertiseService("reset", &OctomapUpdater::resetCallback, this);
       ROS_INFO("Initialization complete of OctomapUpdater");
     }
  
+    bool resetCallback(litterbox::Reset::Request& request, litterbox::Reset::Response& response){
+
+      ROS_INFO("Octomap reset");
+      initOctomap();
+      publishUpdates();
+      return true;
+    }
+
+    void initOctomap(){
+      // Defaults are from octoMap.
+      double occupancyThresh = 0.5;
+      double probHit = 0.8;
+      double probMiss = 0.31;
+      double threshMin = 0.12;
+      double threshMax = 0.95;
+      double resolution = 0.1;
+
+      mPNH.param("sensor_model_occ_thresh", occupancyThresh, occupancyThresh);
+      mPNH.param("sensor_model_hit", probHit, probHit);
+      mPNH.param("sensor_model_miss", probMiss, probMiss);
+      mPNH.param("sensor_model_thresh_min", threshMin, threshMin);
+      mPNH.param("sensor_model_thresh_max", threshMax, threshMax);
+      mPNH.param("resolution", resolution, resolution);
+
+      mOctoMap.reset(new OctomapType(resolution));
+      mOctoMap->octree.setOccupancyThres(occupancyThresh);
+      mOctoMap->octree.setProbHit(probHit);
+      mOctoMap->octree.setProbMiss(probMiss);
+      mOctoMap->octree.setClampingThresMin(threshMin);
+      mOctoMap->octree.setClampingThresMax(threshMax);
+    }
+
     /*
      * Callback called from the sensor listener.
      */
@@ -122,7 +138,7 @@ class OctomapUpdater {
       degradeOutdatedPoints();
 
       ros::WallTime endInsertTime = ros::WallTime::now();
-      ROS_INFO("Insert scan took %f seconds", (endInsertTime - endTransformTime).toSec());
+      // ROS_INFO("Insert scan took %f seconds", (endInsertTime - endTransformTime).toSec());
 
       publishUpdates();
   }
@@ -160,7 +176,7 @@ class OctomapUpdater {
       if(mPointCloudPub.getNumSubscribers() > 0){
         publishPointCloud(header);
       }
-      ROS_INFO("Publishing an update took %f seconds", (ros::WallTime::now() - publishStartTime).toSec());
+      // ROS_INFO("Publishing an update took %f seconds", (ros::WallTime::now() - publishStartTime).toSec());
     }
 
     /*

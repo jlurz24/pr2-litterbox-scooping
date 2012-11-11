@@ -42,5 +42,7 @@ rosbuild_add_executable(octomap_server src/octomap_server.cpp)
 rosbuild_add_executable(laserscan_to_pointcloud src/laserscan_to_pointcloud.cpp)
 rosbuild_add_executable(count_pixels src/count_pixels.cpp)
 rosbuild_add_executable(pixel_occupied src/pixel_occupied.cpp)
+rosbuild_add_executable(observable_volume src/observable_volume.cpp)
 target_link_libraries(insert_scooper tinyxml)
 
+rosbuild_add_library(litterbox src/gazebo_publish_scene.cpp)
