@@ -71,8 +71,10 @@ class PixelOccupied {
     }
 
     static bool worldToMap3D(const costmap_2d::VoxelGridConstPtr& grid, double wx, double wy, double wz, double& mx, double& my, double& mz){
-      if(wx < grid->origin.x || wy < grid->origin.y || wz < grid->origin.z)
+      if(wx < grid->origin.x || wy < grid->origin.y || wz < grid->origin.z){
+        mx = my = mz = 0;
         return false;
+      }
 
       mx = ((wx - grid->origin.x) / grid->resolutions.x);
       my = ((wy - grid->origin.y) / grid->resolutions.y);
